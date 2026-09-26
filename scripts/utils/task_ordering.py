@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from exgentic.interfaces.registry import load_benchmark
 
 
-SEQUENTIAL_BENCHMARK_ORDER = ("bfcl", "appworld", "swebench")
+SEQUENTIAL_BENCHMARK_ORDER = ("bfcl", "appworld", "swebench", "terminalbench2")
 
 
 # ──────────────────────────────────────────────────────────────

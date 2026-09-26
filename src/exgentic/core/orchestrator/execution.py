@@ -8,6 +8,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from pathlib import Path
 
+import httpx
 from filelock import FileLock, Timeout
 
 from ...interfaces.registry import load_agent, load_benchmark
@@ -177,6 +178,10 @@ def run_session_config(
         session_kwargs = evaluator.get_session_kwargs(index)
         # Create session via runner for isolation.
         session = benchmark.get_session(**session_kwargs)
+        if session_config.replay_prefix is not None:
+            from .prefix_replay import PrefixReplaySession
+
+            session = PrefixReplaySession(session, session_config.replay_prefix)
         # run_session handles session.close() internally.
         run_session(session_config, session, agent, tracker=tracker)
     finally:
@@ -248,7 +253,13 @@ _MAX_SESSION_RETRIES = 2
 
 def _is_transient_error(exc: Exception) -> bool:
     """Check if an exception is a known transient benchmark error worth retrying."""
+    if isinstance(exc, (httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadTimeout)):
+        return True
     msg = str(exc)
+    if isinstance(exc, (RuntimeError, TimeoutError)) and (
+        "Venv service failed to start" in msg or "Venv service did not become healthy" in msg
+    ):
+        return True
     return any(pat in msg for pat in _TRANSIENT_ERROR_PATTERNS)
 
 
@@ -261,7 +272,6 @@ def _execute_sessions_serial(
     had_error = False
     try:
         for session_config in session_configs:
-            succeeded = False
             for attempt in range(_MAX_SESSION_RETRIES + 1):
                 try:
                     _run_task_with_lock(
@@ -269,7 +279,6 @@ def _execute_sessions_serial(
                         tracker=tracker,
                         log=log,
                     )
-                    succeeded = True
                     break
                 except (KeyboardInterrupt, RunCancelError):
                     raise
@@ -284,13 +293,11 @@ def _execute_sessions_serial(
                         )
                         continue
                     log.exception(
-                        "Session task failed task=%s",
+                        "Session task failed task=%s; recording error and continuing to next task",
                         session_config.task_id if session_config else "unknown",
                     )
-                    had_error = True
+                    tracker.on_session_execution_error(session_config, exc)
                     break
-            if not succeeded and not had_error:
-                had_error = True
     except (KeyboardInterrupt, RunCancelError) as exc:
         tracker.on_run_error(exc)
         had_error = True
@@ -337,12 +344,11 @@ def _execute_sessions_parallel(
                         except Exception as exc:
                             session_id = session_config.get_session_id() if session_config is not None else "unknown"
                             log.exception(
-                                "Session task failed task=%s session=%s",
+                                "Session task failed task=%s session=%s; recording error and continuing to next task",
                                 session_config.task_id if session_config else "unknown",
                                 session_id,
                             )
-                            tracker.on_run_error(exc)
-                            had_error = True
+                            tracker.on_session_execution_error(session_config, exc)
         except (KeyboardInterrupt, RunCancelError) as exc:
             tracker.on_run_error(exc)
             had_error = True

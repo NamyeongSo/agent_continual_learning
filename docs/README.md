@@ -15,6 +15,7 @@ Welcome to the Exgentic docs. Use the table below to find what you need.
 | [Runners](./runners.md) | `direct`, `venv`, `docker` — isolation levels, configuration, Docker-in-Docker |
 | [Output Format](./output-format.md) | Schema for `results.json`, `trajectory.jsonl`, session results, and cost reports |
 | [Observers](./observers.md) | Hook into the evaluation lifecycle for custom logging, monitoring, and early stopping |
+| [Terminal-Bench 2.0](./terminalbench2.md) | Install the Docker benchmark and train ACE or PREMiSE on its frozen task split |
 
 ## Extending Exgentic
 

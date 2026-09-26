@@ -17,11 +17,12 @@ NUM_TASKS="${NUM_TASKS:-50}"
 MODE="${MODE:-sequential}" # isolated | sequential | interleaved
 MAX_TOKENS="${MAX_TOKENS:-default}"
 # A benchmark-specific setting overrides MAX_TURNS; otherwise the requested
-# defaults are AppWorld/BFCL 50 and SWE-bench 100.
+# defaults are AppWorld/BFCL 50 and terminal benchmarks 100.
 MAX_TURNS="${MAX_TURNS:-}"
 APPWORLD_MAX_TURNS="${ACE_APPWORLD_MAX_TURNS:-${MAX_TURNS:-50}}"
 BFCL_MAX_TURNS="${ACE_BFCL_MAX_TURNS:-${MAX_TURNS:-50}}"
 SWEBENCH_MAX_TURNS="${ACE_SWEBENCH_MAX_TURNS:-${MAX_TURNS:-100}}"
+TERMINALBENCH2_MAX_TURNS="${ACE_TERMINALBENCH2_MAX_TURNS:-${MAX_TURNS:-100}}"
 OUTPUT_BASE="${OUTPUT_BASE:-./outputs}"
 BENCHMARKS="${ACE_BENCHMARKS:-bfcl,appworld,swebench}"
 ACE_TRAINING_TIME="${ACE_TRAINING_TIME:-0}"
@@ -37,29 +38,29 @@ if [[ ${#benchmark_list[@]} -eq 0 ]]; then
 fi
 for benchmark in "${benchmark_list[@]}"; do
     case "$benchmark" in
-        appworld|bfcl|swebench) ;;
+        appworld|bfcl|swebench|terminalbench2) ;;
         *) echo "Unsupported benchmark: $benchmark" >&2; exit 2 ;;
     esac
 done
 
-if [[ ",${BENCHMARKS}," == *,swebench,* ]]; then
+if [[ ",${BENCHMARKS}," == *,swebench,* || ",${BENCHMARKS}," == *,terminalbench2,* ]]; then
     # A mounted local socket or an explicitly configured remote Docker host
     # is required. Do not bake a private server address into this script.
     if [[ -z "${DOCKER_HOST:-}" && ! -S /var/run/docker.sock ]]; then
         export DOCKER_HOST="${ACE_DOCKER_HOST:-}"
     fi
     if [[ -z "${DOCKER_HOST:-}" ]]; then
-        echo "SWE-bench needs a mounted Docker socket or DOCKER_HOST/ACE_DOCKER_HOST." >&2
+        echo "Docker benchmark needs a mounted Docker socket or DOCKER_HOST/ACE_DOCKER_HOST." >&2
         exit 1
     fi
     if ! command -v docker > /dev/null 2>&1; then
-        echo "SWE-bench needs a Docker CLI inside this environment; 'docker' is not on PATH." >&2
+        echo "Docker benchmark needs a Docker CLI inside this environment; 'docker' is not on PATH." >&2
         echo "In a container, also mount the host Docker socket or set DOCKER_HOST." >&2
         echo "Until then, use ACE_BENCHMARKS=appworld,bfcl for the available benchmarks." >&2
         exit 1
     fi
     if ! timeout 10s docker info > /dev/null 2>&1; then
-        echo "SWE-bench needs a reachable Docker daemon (check /var/run/docker.sock or DOCKER_HOST)." >&2
+        echo "Docker benchmark needs a reachable Docker daemon (check /var/run/docker.sock or DOCKER_HOST)." >&2
         exit 1
     fi
 fi
@@ -69,7 +70,7 @@ case "$MODE" in
     *) echo "Invalid MODE: $MODE" >&2; exit 2 ;;
 esac
 
-# All three benchmarks need tool calls. Fail before selecting tasks if the
+# These benchmarks need tool calls. Fail before selecting tasks if the
 # server was started without automatic tool-call support.
 if ! curl --fail --silent --show-error --max-time 30 \
     -H "Authorization: Bearer $OPENAI_API_KEY" \
@@ -82,6 +83,9 @@ if ! curl --fail --silent --show-error --max-time 30 \
 fi
 
 settings_args=()
+if [[ -n "${ACE_TASK_SPLIT_MANIFEST:-}" ]]; then
+    settings_args+=(--task-split-manifest "$ACE_TASK_SPLIT_MANIFEST")
+fi
 if [[ -n "$MAX_TURNS" ]]; then
     settings_args+=(--max-turns "$MAX_TURNS")
 fi
@@ -89,6 +93,8 @@ settings_args+=(
     --appworld-max-turns "$APPWORLD_MAX_TURNS"
     --bfcl-max-turns "$BFCL_MAX_TURNS"
     --swebench-max-turns "$SWEBENCH_MAX_TURNS"
+    --terminalbench2-max-turns "$TERMINALBENCH2_MAX_TURNS"
+    --terminalbench2-actor "${ACE_TERMINALBENCH2_ACTOR:-terminus2}"
 )
 if [[ "$ACE_TRAINING_TIME" == "1" ]]; then
     settings_args+=(--training-time)
@@ -106,17 +112,17 @@ fi
 run_benchmarks() {
     local benchmark_list="$1"
     local output_dir="$2"
-    python run_experiment.py \
+    python -u run_experiment.py \
         --mode "$MODE" --seed "$SEED" --num-tasks "$NUM_TASKS" \
         --model "$MODEL" "${settings_args[@]}" \
         --disable-thinking \
         --benchmarks "$benchmark_list" \
         --output-dir "$output_dir" \
-        2>&1 | tee "${output_dir}.log"
+        2>&1 | tee -a "${output_dir}.log"
 }
 
 mkdir -p "$OUTPUT_BASE"
-turn_tag="aw${APPWORLD_MAX_TURNS}_bf${BFCL_MAX_TURNS}_sw${SWEBENCH_MAX_TURNS}"
+turn_tag="aw${APPWORLD_MAX_TURNS}_bf${BFCL_MAX_TURNS}_sw${SWEBENCH_MAX_TURNS}_tb${TERMINALBENCH2_MAX_TURNS}"
 run_tag="ace_qwen_nothink_${MODE}_s${SEED}_n${NUM_TASKS}_${MAX_TOKENS}_${turn_tag}_${BENCHMARKS//,/_}"
 if [[ "$ACE_TRAINING_TIME" == "1" ]]; then
     run_tag="ace_qwen_training_time_nothink_${MODE}_s${SEED}_n${NUM_TASKS}_${MAX_TOKENS}_${turn_tag}_${BENCHMARKS//,/_}"

@@ -35,6 +35,7 @@ class ACEAgent(Agent):
 
     use_json_mode: bool = True
     training_time: bool = False
+    evaluation_mode: bool = False
     runner: RunnerName | None = None
     model_settings: ModelSettings | None = None
     enable_thinking: bool | None = None
@@ -71,6 +72,7 @@ class ACEAgent(Agent):
             "initial_playbook": pb,
             "use_json_mode": self.use_json_mode,
             "training_time": self.training_time,
+            "evaluation_mode": self.evaluation_mode,
             "model_settings": self.model_settings,
             "enable_thinking": self.enable_thinking,
             "benchmark_id": self.benchmark_id,

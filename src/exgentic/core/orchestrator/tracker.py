@@ -148,6 +148,10 @@ class Tracker(Observer, Controller):
         for observer in self._observers:
             observer.on_session_error(session, error)
 
+    def on_session_execution_error(self, session_config, error) -> None:
+        for observer in self._observers:
+            observer.on_session_execution_error(session_config, error)
+
     def on_session_success(self, session, score, agent) -> None:
         for observer in self._observers:
             observer.on_session_success(session, score, agent)

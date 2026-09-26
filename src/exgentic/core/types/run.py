@@ -242,6 +242,7 @@ class RunConfig(BaseEvaluationConfig):
     max_steps: int = 100
     max_actions: int = 100
     overwrite_sessions: bool = False
+    replay_prefix: Optional[dict[str, Any]] = None
 
     @field_validator("max_steps", "max_actions")
     @classmethod
@@ -262,6 +263,7 @@ class RunConfig(BaseEvaluationConfig):
             run_id=self.run_id,
             model=self.model,
             overwrite_sessions=self.overwrite_sessions,
+            replay_prefix=self.replay_prefix,
             benchmark_kwargs=dict(self.benchmark_kwargs or {}),
             agent_kwargs=dict(self.agent_kwargs or {}),
         )

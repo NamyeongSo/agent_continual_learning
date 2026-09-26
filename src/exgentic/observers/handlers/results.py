@@ -138,6 +138,45 @@ class ResultsObserver(Observer):
     def on_session_success(self, session, score, agent) -> None:
         self._record_session(session, score, agent=agent)
 
+    def on_session_execution_error(self, session_config, error) -> None:
+        session_id = session_config.get_session_id()
+        with self._lock:
+            # Cleanup can fail after the session result has already been recorded.
+            if any(result.session_id == session_id for result in self._session_results):
+                return
+            data = self._sessions.pop(session_id, None)
+        state = self._ledger.pop_state(session_id)
+        metadata = {
+            "error": str(error),
+            "error_type": type(error).__name__,
+            "error_source": "execution",
+            "skipped": True,
+        }
+        if isinstance(error, OSError):
+            metadata["errno"] = error.errno
+        report = CostReport.initialize_empty()
+        result = SessionResults(
+            session_id=session_id,
+            task_id=str(session_config.task_id),
+            success=False,
+            score=0.0,
+            is_finished=None,
+            status=SessionOutcomeStatus.ERROR,
+            steps=state.steps if state is not None else 0,
+            action_count=data.action_count if data is not None else 0,
+            agent_cost=0.0,
+            benchmark_cost=0.0,
+            execution_time=time.time() - state.started_at if state is not None else 0.0,
+            details={"session_metadata": metadata},
+            cost_reports={"agent": report, "benchmark": report},
+        )
+        with self._lock:
+            self._session_results.append(result)
+        paths = self.paths.session(session_id)
+        paths.results.parent.mkdir(parents=True, exist_ok=True)
+        paths.results.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+        paths.error_log.write_text(f"source: execution\n{type(error).__name__}: {error}", encoding="utf-8")
+
     def on_run_success(self, results, run_config) -> None:
         with self._lock:
             self._final_results = results
@@ -188,6 +227,7 @@ class ResultsObserver(Observer):
             "task_id": session.task_id,
             "step": step_n,
             "action": json.loads(action.model_dump_json()),
+            "action_class": type(action).__name__,
             "initial": False,
             "agent_cost": agent_cost,
             "benchmark_cost": benchmark_cost,

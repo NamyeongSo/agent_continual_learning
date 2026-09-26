@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "policy": "five selected Terminal-Bench 2.0 training tasks for an ACE pilot; validation IDs remain frozen",
+  "seed": 42,
+  "source_manifest": "seed42_train50_val39_terminalbench2.json",
+  "train_count_per_benchmark": 5,
+  "val_count_per_benchmark": 39,
+  "benchmarks": {
+    "terminalbench2": {
+      "benchmark_kwargs": {
+        "subset": "2.0"
+      },
+      "train": [
+        "fix-git",
+        "filter-js-from-html",
+        "sqlite-db-truncate",
+        "openssl-selfsigned-cert",
+        "regex-log"
+      ],
+      "val": [
+        "break-filter-js-from-html",
+        "build-pmars",
+        "password-recovery",
+        "build-pov-ray",
+        "bn-fit-modify",
+        "dna-assembly",
+        "reshard-c4-data",
+        "nginx-request-logging",
+        "custom-memory-heap-crash",
+        "db-wal-recovery",
+        "dna-insert",
+        "git-leak-recovery",
+        "build-cython-ext",
+        "write-compressor",
+        "path-tracing-reverse",
+        "vulnerable-secret",
+        "caffe-cifar-10",
+        "make-mips-interpreter",
+        "polyglot-c-py",
+        "schemelike-metacircular-eval",
+        "log-summary-date-ranges",
+        "llm-inference-batching-scheduler",
+        "compile-compcert",
+        "cancel-async-tasks",
+        "model-extraction-relu-logits",
+        "multi-source-data-merger",
+        "install-windows-3.11",
+        "polyglot-rust-c",
+        "winning-avg-corewars",
+        "modernize-scientific-stack",
+        "protein-assembly",
+        "qemu-startup",
+        "query-optimize",
+        "train-fasttext",
+        "raman-fitting",
+        "sanitize-git-repo",
+        "extract-moves-from-video",
+        "count-dataset-tokens",
+        "hf-model-inference"
+      ]
+    }
+  }
+}

@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import random
 import sys
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -24,7 +26,7 @@ from exgentic.agents.ace.playbook_store import PlaybookStore
 from exgentic.agents.ace.playbook_utils import get_playbook_stats
 from exgentic.core.types import ModelSettings
 
-from task_ordering import get_unified_task_order, group_by_benchmark
+from task_ordering import SEQUENTIAL_BENCHMARK_ORDER, get_unified_task_order, group_by_benchmark
 
 
 BENCHMARK_REGISTRY: dict[str, dict[str, Any]] = {
@@ -40,6 +42,10 @@ BENCHMARK_REGISTRY: dict[str, dict[str, Any]] = {
         "bm_kwargs": {
             "subset": "princeton-nlp/SWE-bench_Verified",
         },
+        "agent_kwargs": {},
+    },
+    "terminalbench2": {
+        "bm_kwargs": {"subset": "2.0"},
         "agent_kwargs": {},
     },
     "appworld": {
@@ -164,6 +170,38 @@ def resolve_max_turns(args: argparse.Namespace, benchmark_slug: str) -> int | No
     return specific if specific is not None else args.max_turns
 
 
+def task_order_from_train_manifest(
+    path: Path, benchmarks: list[str], seed: int, count: int, mode: str = "sequential"
+) -> list[tuple[str, str]]:
+    """Keep frozen training IDs fixed; vary order or interleaving by run seed."""
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest_count = manifest.get("train_count_per_benchmark")
+    if not isinstance(manifest_count, int) or not 0 < count <= manifest_count:
+        raise ValueError(f"Train manifest must have at least {count} tasks per benchmark")
+    ordered_slugs = [slug for slug in SEQUENTIAL_BENCHMARK_ORDER if slug in benchmarks]
+    ordered_slugs.extend(slug for slug in benchmarks if slug not in ordered_slugs)
+    per_benchmark: dict[str, deque[str]] = {}
+    for slug in ordered_slugs:
+        split = manifest["benchmarks"][slug]
+        train = list(split["train"])
+        val = split["val"]
+        if len(train) != manifest_count or len(set(train)) != manifest_count or set(train) & set(val):
+            raise ValueError(f"Invalid train/val split for {slug}")
+        order_seed = int(hashlib.md5(f"{seed}_{slug}".encode()).hexdigest(), 16) % (2**31)
+        random.Random(order_seed).shuffle(train)
+        per_benchmark[slug] = deque(train[:count])
+    if mode == "sequential":
+        return [(slug, task_id) for slug in ordered_slugs for task_id in per_benchmark[slug]]
+    if mode == "interleaved":
+        rng = random.Random(seed)
+        task_order: list[tuple[str, str]] = []
+        while any(per_benchmark.values()):
+            slug = rng.choice(sorted(slug for slug, tasks in per_benchmark.items() if tasks))
+            task_order.append((slug, per_benchmark[slug].popleft()))
+        return task_order
+    raise ValueError(f"Unsupported manifest training mode: {mode}")
+
+
 def run_experiment(args):
     benchmarks_to_run = [s.strip() for s in args.benchmarks.split(",")]
     benchmark_max_turns = {
@@ -178,6 +216,10 @@ def run_experiment(args):
         configs["appworld"]["bm_kwargs"]["max_interactions"] = args.appworld_max_interactions
     if args.swebench_max_interactions is not None and "swebench" in configs:
         configs["swebench"]["bm_kwargs"]["max_interactions"] = args.swebench_max_interactions
+    if "terminalbench2" in configs:
+        configs["terminalbench2"]["bm_kwargs"]["actor"] = args.terminalbench2_actor
+        if args.terminalbench2_max_turns is not None:
+            configs["terminalbench2"]["bm_kwargs"]["max_interactions"] = args.terminalbench2_max_turns
 
     settings_kwargs = {}
     if args.max_tokens is not None:
@@ -197,7 +239,14 @@ def run_experiment(args):
     print(f"  output_dir={args.output_dir}")
     print(f"{'=' * 70}\n")
 
-    task_order = get_unified_task_order(configs, args.num_tasks, args.seed, args.mode)
+    if args.task_split_manifest is not None:
+        if args.mode not in ("sequential", "interleaved"):
+            raise ValueError("--task-split-manifest requires sequential or interleaved mode")
+        task_order = task_order_from_train_manifest(
+            args.task_split_manifest, benchmarks_to_run, args.seed, args.num_tasks, args.mode
+        )
+    else:
+        task_order = get_unified_task_order(configs, args.num_tasks, args.seed, args.mode)
     print(f"Total tasks: {len(task_order)}")
 
     output_dir = Path(args.output_dir)
@@ -216,6 +265,8 @@ def run_experiment(args):
         "training_time": args.training_time,
         "max_turns": args.max_turns,
         "benchmark_max_turns": benchmark_max_turns,
+        "task_split_manifest": str(args.task_split_manifest) if args.task_split_manifest else None,
+        "terminalbench2_actor": args.terminalbench2_actor,
     }
     if args.appworld_max_interactions is not None:
         exp_config["appworld_max_interactions"] = args.appworld_max_interactions
@@ -246,6 +297,14 @@ def run_experiment(args):
             _restored = True
     if _restored:
         print(f"  ♻️  Restored playbook from checkpoint (session_count={_restored_session_count})")
+    # A checkpoint contains playbook state, not the in-memory updates from a
+    # partially completed benchmark. Give resumed sessions fresh run IDs so
+    # the orchestrator cannot reuse their old results without replaying those
+    # updates into the playbook.
+    resume_run_suffix = (
+        f"_resume_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
+        if _restored else ""
+    )
 
     all_scores: list[float] = []
     bm_scores: defaultdict[str, list[float]] = defaultdict(list)
@@ -311,6 +370,7 @@ def run_experiment(args):
                 task_ids=task_ids,
                 max_workers=1,
                 output_dir=str(output_dir),
+                run_id=f"ace_{args.mode}_s{args.seed}_{bm_slug}{resume_run_suffix}",
                 **({"max_steps": benchmark_max_turns[bm_slug]} if benchmark_max_turns[bm_slug] is not None else {}),
             )
 
@@ -370,6 +430,7 @@ def run_experiment(args):
                 task_ids=[task_id],
                 max_workers=1,
                 output_dir=str(output_dir),
+                run_id=f"ace_interleaved_s{args.seed}_{i:03d}_{bm_slug}{resume_run_suffix}",
                 **({"max_steps": benchmark_max_turns[bm_slug]} if benchmark_max_turns[bm_slug] is not None else {}),
             )
 
@@ -394,7 +455,7 @@ def run_experiment(args):
             session_index += 1
 
     print(f"\n{'=' * 70}")
-    print(f"  Final Summary")
+    print("  Final Summary")
     print(f"{'=' * 70}")
     print(f"  Overall avg score: {sum(all_scores)/len(all_scores):.3f}")
     for bm, scores in sorted(bm_scores.items()):
@@ -419,6 +480,8 @@ def main():
     parser.add_argument("--benchmarks", default="browsecompplus,swebench,bfcl,tau2",
                         help="Comma-separated benchmark slugs")
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--task-split-manifest", type=Path, default=None,
+                        help="Use only frozen train IDs from a train/val manifest")
     parser.add_argument("--max-tokens", type=int, default=None, help="Max output tokens")
     parser.add_argument("--appworld-max-interactions", type=int, default=None,
                         help="Optional AppWorld interaction limit for smoke runs")
@@ -437,6 +500,10 @@ def main():
                         help="BFCL max steps (overrides --max-turns)")
     parser.add_argument("--swebench-max-turns", type=int, default=None,
                         help="SWE-bench max steps (overrides --max-turns)")
+    parser.add_argument("--terminalbench2-max-turns", type=int, default=None,
+                        help="Terminal-Bench 2.0 max steps (overrides --max-turns)")
+    parser.add_argument("--terminalbench2-actor", choices=["terminus2", "interactive"], default="terminus2",
+                        help="Terminal-Bench 2.0 ACE actor (default: Harbor Terminus-2)")
     args = parser.parse_args()
     if args.appworld_max_interactions is not None and args.appworld_max_interactions < 1:
         parser.error("--appworld-max-interactions must be positive")
@@ -444,7 +511,7 @@ def main():
         parser.error("--swebench-max-interactions must be positive")
     if args.max_turns is not None and args.max_turns < 1:
         parser.error("--max-turns must be positive")
-    for slug in ("appworld", "bfcl", "swebench"):
+    for slug in ("appworld", "bfcl", "swebench", "terminalbench2"):
         value = getattr(args, f"{slug}_max_turns")
         if value is not None and value < 1:
             parser.error(f"--{slug}-max-turns must be positive")

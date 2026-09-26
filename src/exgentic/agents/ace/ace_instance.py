@@ -67,6 +67,7 @@ class ACEAgentInstance(AgentInstance):
         initial_playbook: Optional[str] = None,
         use_json_mode: bool = True,
         training_time: bool = False,
+        evaluation_mode: bool = False,
         model_settings: Optional[ModelSettings] = None,
         enable_thinking: Optional[bool] = None,
         benchmark_id: Optional[str] = None,
@@ -87,6 +88,7 @@ class ACEAgentInstance(AgentInstance):
         self.initial_playbook = initial_playbook
         self.use_json_mode = use_json_mode
         self.training_time = training_time
+        self.evaluation_mode = evaluation_mode
         self._training_feedback: Optional[Dict[str, Any]] = None
         self.benchmark_id = benchmark_id
         self.use_bulletpoint_analyzer = use_bulletpoint_analyzer
@@ -119,6 +121,7 @@ class ACEAgentInstance(AgentInstance):
 
         self._observation_log: List[Dict[str, Any]] = []
         self._action_log: List[Dict[str, Any]] = []
+        self._terminus_started = False
 
     def _log_failure(
         self, component: str, error: Exception, context: Dict[str, Any]
@@ -199,7 +202,8 @@ class ACEAgentInstance(AgentInstance):
             initial_playbook=self.initial_playbook,
             benchmark_id=self.benchmark_id,
         )
-        self._store.increment_session()
+        if not self.evaluation_mode:
+            self._store.increment_session()
 
         playbook = self._store.playbook
         system_content = self._build_system_prompt(playbook)
@@ -240,6 +244,24 @@ class ACEAgentInstance(AgentInstance):
         self._step_count += 1
         self._observe(observation)
         self._log_observation(observation)
+
+        if self.benchmark_id == "terminalbench2" and any(
+            action.name == "run_terminus2" for action in self._all_actions
+        ):
+            if self._terminus_started:
+                return None
+            self._terminus_started = True
+            assert self._store is not None
+            self._action_log.append({
+                "step": self._step_count,
+                "action": "run_terminus2",
+                "arguments": {
+                    "model": self.model,
+                    "playbook_bullets": get_playbook_stats(self._store.playbook)["total_bullets"],
+                },
+            })
+            action_type = next(action for action in self._all_actions if action.name == "run_terminus2")
+            return action_type.build_action({"model": self.model, "playbook": self._store.playbook})
 
         tools = self._assistant_tools()
         response = self._completion(
@@ -310,6 +332,9 @@ class ACEAgentInstance(AgentInstance):
     def receive_training_feedback(self, feedback: Dict[str, Any]) -> None:
         if self.training_time:
             self._training_feedback = feedback
+            if self.benchmark_id == "terminalbench2":
+                usage = (feedback.get("session_metadata") or {}).get("agent_usage") or {}
+                self._cost.update_cost_from_tokens(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
             self.logger.info(
                 "ACE training_time feedback received: score=%s success=%s fields=%s",
                 feedback.get("score"),
@@ -332,6 +357,11 @@ class ACEAgentInstance(AgentInstance):
             )
         )
         self._log_bullet_usage(bullet_ids)
+
+        if self.evaluation_mode:
+            # Validation is inference-only: no reflection, curator call,
+            # learning event, or checkpoint write may affect later val tasks.
+            return
 
         reflection_content = "(empty)"
         if self._observation_log or (self.training_time and self._training_feedback is not None):
@@ -509,6 +539,10 @@ class ACEAgentInstance(AgentInstance):
             if isinstance(result, str):
                 entry["content"] = result
             elif isinstance(result, dict):
+                if obs.invoking_actions and obs.invoking_actions[0].name == "run_terminus2":
+                    self._cost.update_cost_from_tokens(
+                        result.get("input_tokens", 0), result.get("output_tokens", 0)
+                    )
                 entry["content"] = json.dumps(result, ensure_ascii=False)
             else:
                 entry["content"] = str(result)
@@ -664,12 +698,30 @@ class ACEAgentInstance(AgentInstance):
                     "session_metadata", "evaluation", "summary", "patch", "container",
                 }
             }
+            if isinstance(feedback.get("session_metadata"), dict):
+                feedback["session_metadata"] = {
+                    key: value for key, value in feedback["session_metadata"].items()
+                    if key != "agent_trace"
+                }
             prompt = REFLECTOR_PROMPT_TRAINING_TIME.format(
                 **prompt_kwargs,
                 grading_feedback=json.dumps(feedback, ensure_ascii=False, default=str),
             )
         else:
             prompt = REFLECTOR_PROMPT_NO_GT.format(**prompt_kwargs)
+
+        if self.benchmark_id == "terminalbench2":
+            prompt = prompt.replace(
+                "chain of thought / reasoning / thinking process, detailed analysis and calculations",
+                "brief outcome summary (at most 100 words)",
+            ).replace(
+                "chain of thought / reasoning / thinking process",
+                "brief outcome summary",
+            )
+            prompt += (
+                "\nFor this terminal task, keep each JSON string field under 100 words. "
+                "Give only concrete, transferable lessons. Return the complete JSON object."
+            )
 
         raw = self._llm_call_simple(
             self.model, prompt, json_mode=self.use_json_mode
@@ -725,6 +777,10 @@ class ACEAgentInstance(AgentInstance):
                 lines.append(f"[Step {step}] Observation from {action}:")
                 lines.append(f"  {content}")
 
+        if self._training_feedback is not None:
+            agent_trace = (self._training_feedback.get("session_metadata") or {}).get("agent_trace")
+            if agent_trace:
+                lines.append("Terminus-2 trajectory:\n" + agent_trace)
         return "\n".join(lines) if lines else "(No session trace recorded)"
 
     def _run_curator(self, reflection_content: str) -> None:
@@ -750,6 +806,15 @@ class ACEAgentInstance(AgentInstance):
             current_playbook=playbook,
             question_context=question_context,
         )
+        if self.benchmark_id == "terminalbench2":
+            prompt = prompt.replace(
+                "your chain of thought / reasoning / thinking process",
+                "a brief justification (at most 80 words)",
+            )
+            prompt += (
+                "\nFor this terminal task, return at most three concise ADD operations. "
+                "Keep reasoning under 80 words and return the complete JSON object."
+            )
 
         raw = self._llm_call_simple(
             self.curator_model, prompt, json_mode=self.use_json_mode

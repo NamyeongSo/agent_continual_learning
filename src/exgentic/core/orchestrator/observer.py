@@ -58,6 +58,9 @@ class Observer:
     def on_session_error(self, session, error) -> None:
         return None
 
+    def on_session_execution_error(self, session_config, error) -> None:
+        """A task failed outside the session loop, possibly before session creation."""
+
     def on_session_success(self, session, score, agent) -> None:
         return None
 

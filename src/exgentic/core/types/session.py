@@ -179,9 +179,10 @@ class SessionConfig(BaseEvaluationConfig):
 
     task_id: str
     overwrite_sessions: bool = False
+    replay_prefix: Optional[dict[str, Any]] = None
 
     def session_id_payload(self) -> dict[str, Any]:
-        return {
+        payload = {
             "benchmark": self.benchmark,
             "benchmark_kwargs": dict(self.benchmark_kwargs or {}),
             "agent": self.agent,
@@ -190,6 +191,9 @@ class SessionConfig(BaseEvaluationConfig):
             "task_id": str(self.task_id),
             "model": self.model,
         }
+        if self.replay_prefix is not None:
+            payload["replay_prefix"] = self.replay_prefix
+        return payload
 
     def get_session_id(self) -> str:
         encoded = json.dumps(

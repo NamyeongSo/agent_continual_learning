@@ -140,9 +140,26 @@ BENCHMARKS: dict[str, RegistryEntry] = {
         subset_arg="subset",
         task_id_type="str",
     ),
+    "terminalbench2": RegistryEntry(
+        slug_name="terminalbench2",
+        display_name="Terminal-Bench 2.0",
+        module="exgentic.benchmarks.terminalbench2.terminalbench2_benchmark",
+        attr="TerminalBench2Benchmark",
+        kind="benchmark",
+        subsets=("2.0",),
+        subset_arg="subset",
+        task_id_type="str",
+    ),
 }
 
 AGENTS: dict[str, RegistryEntry] = {
+    "premise": RegistryEntry(
+        slug_name="premise",
+        display_name="Premise Pareto Agent",
+        module="exgentic.agents.premise.agent",
+        attr="PremiseAgent",
+        kind="agent",
+    ),
     "tool_calling": RegistryEntry(
         slug_name="tool_calling",
         display_name="LiteLLM Tool Calling",

@@ -30,3 +30,8 @@ policy. In particular, the old ACE `seed=42, num_tasks=50` task set is **not**
 assumed to equal the new manifest's `train` set because the new policy sorts
 the source IDs before shuffling. Compare old and new runs only after checking
 their saved task ID lists.
+
+For the BFCL + AppWorld + Terminal-Bench 2.0 experiment, use
+`seed42_train50_val39_terminalbench2.json`. Terminal-Bench 2.0 has 89 tasks,
+so its frozen split has 50 training and 39 validation IDs. The two existing
+benchmarks keep the same 50 training IDs. See [the Terminal-Bench setup guide](../../docs/terminalbench2.md).
