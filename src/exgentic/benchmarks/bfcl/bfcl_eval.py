@@ -131,11 +131,13 @@ class BFCLSession(Session):
         prompt_entry: dict[str, Any],
         possible_answer_entry: dict[str, Any] | None,
         session_id: str | None = None,
+        auxiliary_turn_metrics: bool = False,
     ) -> None:
         if session_id is not None:
             self._session_id = session_id
 
         self.subset = subset
+        self.auxiliary_turn_metrics = auxiliary_turn_metrics
         self.prompt_entry = prompt_entry
         self.possible_answer_entry = possible_answer_entry
         self._task_id = str(prompt_entry["id"])
@@ -216,18 +218,42 @@ class BFCLSession(Session):
         return self._completed
 
     def score(self) -> SessionScore:
+        if failure := getattr(self, "_experiment_failure_score", None):
+            return failure
         if self._result_payload is None:
             self._result_payload = self._compute_result_payload()
+        if (getattr(self, "auxiliary_turn_metrics", False) and _is_multi_turn_subset(self.subset)
+                and "auxiliary_turn_metric" not in self._result_payload.get("session_metadata", {})):
+            from .turn_metrics import turn_metrics
 
+            metric = turn_metrics(self._turn_step_calls, self.possible_answer_entry["ground_truth"],
+                                  self.prompt_entry, self.subset)
+            self._result_payload.setdefault("session_metadata", {})["auxiliary_turn_metric"] = metric
+            self._result_payload.setdefault("session_metrics", {})[metric["metric"]] = metric["score"]
+            _write_json(self.paths.benchmark_dir / "bfcl_score.json", self._result_payload)
+
+        # Gorilla's checker can leave bfcl_eval class instances nested in
+        # checker_result.details. The host process intentionally does not
+        # install bfcl_eval, so cloudpickle cannot decode those objects over
+        # the venv RPC boundary. Match the JSON-safe form saved on disk.
+        session_metrics = json.loads(json.dumps(
+            self._result_payload.get("session_metrics", {}), ensure_ascii=False, default=str
+        ))
+        session_metadata = json.loads(json.dumps(
+            self._result_payload.get("session_metadata", {}), ensure_ascii=False, default=str
+        ))
         return SessionScore(
             score=float(self._result_payload["score"]),
             success=bool(self._result_payload["success"]),
             is_finished=self._result_payload.get("is_finished"),
-            session_metrics=self._result_payload.get("session_metrics", {}),
-            session_metadata=self._result_payload.get("session_metadata", {}),
+            session_metrics=session_metrics,
+            session_metadata=session_metadata,
         )
 
     def close(self) -> None:
+        if failure := getattr(self, "_experiment_failure_score", None):
+            self.save_results(failure.model_dump())
+            return
         if self._result_payload is None:
             self._result_payload = self._compute_result_payload()
         _write_json(self.paths.benchmark_results, self._result_payload)
@@ -510,8 +536,9 @@ class BFCLSession(Session):
 class BFCLEvaluator(Evaluator):
     """Evaluator for BFCL — task discovery, session kwargs, aggregation."""
 
-    def __init__(self, subset: str = "simple_python") -> None:
+    def __init__(self, subset: str = "simple_python", auxiliary_turn_metrics: bool = False) -> None:
         self._subset: BFCLSubset = subset  # type: ignore[assignment]
+        self._auxiliary_turn_metrics = auxiliary_turn_metrics
         self._entries: list[dict[str, Any]] | None = None
         self._answers_by_id: dict[str, dict[str, Any]] | None = None
 
@@ -548,6 +575,7 @@ class BFCLEvaluator(Evaluator):
             "prompt_entry": prompt_entry,
             "possible_answer_entry": answer_entry,
             "session_id": index.session_id,
+            "auxiliary_turn_metrics": self._auxiliary_turn_metrics,
         }
 
     def aggregate_sessions(self, sessions: list[SessionIndex]) -> BenchmarkResults:

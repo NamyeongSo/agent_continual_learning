@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class RetryStrategy(str, Enum):
@@ -16,7 +17,11 @@ class RetryStrategy(str, Enum):
 class ModelSettings(BaseModel):
     temperature: float | None = 1.0
     top_p: float | None = None
+    presence_penalty: float | None = None
+    extra_body: dict[str, Any] | None = None
     max_tokens: int | None = None
+    timeout: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    disable_request_timeout: bool = False
     reasoning_effort: str | None = None
     num_retries: int | None = 5
     retry_after: float = 0.5

@@ -1,0 +1,13 @@
+## Previous Epoch Last-Step Skill
+{prev_skill}
+
+## Current Epoch Last-Step Skill
+{curr_skill}
+
+## Previous Optimizer Meta Skill
+The following optimizer memory was available during the current epoch. Reflect on whether it improved or harmed the quality of edits.
+
+{prev_meta_section}
+
+## Longitudinal Comparison (same tasks, two last-step skills)
+{comparison_text}

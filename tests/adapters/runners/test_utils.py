@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from exgentic.adapters.runners._utils import find_project_root
+from exgentic.adapters.runners._utils import find_free_port, find_project_root
 
 
 def test_find_project_root_returns_repo_root():
@@ -78,3 +78,13 @@ def test_find_project_root_fallback_is_idempotent(tmp_path: Path):
 
     assert result1 == result2
     assert result1 == fake_home / ".exgentic"
+
+
+def test_seed_port_blocks_are_disjoint(monkeypatch):
+    monkeypatch.setenv("EXGENTIC_PORT_BLOCK_START", "36000")
+    first = find_free_port()
+    monkeypatch.setenv("EXGENTIC_PORT_BLOCK_START", "37000")
+    second = find_free_port()
+    assert 36000 <= first < 37000
+    assert 37000 <= second < 38000
+    assert first != second

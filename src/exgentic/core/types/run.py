@@ -242,6 +242,7 @@ class RunConfig(BaseEvaluationConfig):
     max_steps: int = 100
     max_actions: int = 100
     overwrite_sessions: bool = False
+    replay_prefix: Optional[dict[str, Any]] = None
 
     @field_validator("max_steps", "max_actions")
     @classmethod
@@ -262,6 +263,8 @@ class RunConfig(BaseEvaluationConfig):
             run_id=self.run_id,
             model=self.model,
             overwrite_sessions=self.overwrite_sessions,
+            replay_prefix=self.replay_prefix,
+            experiment_limits=self.experiment_limits,
             benchmark_kwargs=dict(self.benchmark_kwargs or {}),
             agent_kwargs=dict(self.agent_kwargs or {}),
         )
@@ -274,18 +277,22 @@ class RunConfig(BaseEvaluationConfig):
         from ...interfaces.registry import load_benchmark
 
         resolved = resolved_config or self
+        bench_cls = load_benchmark(resolved.benchmark)
+        sequential = getattr(bench_cls, "requires_sequential_sessions", False)
+        if sequential and resolved.max_workers not in (None, 1):
+            raise ValueError(f"{resolved.benchmark} requires max_workers=1 to preserve its development stream")
         task_ids = resolved.task_ids
 
         if task_ids is None:
-            bench_cls = load_benchmark(resolved.benchmark)
             benchmark = bench_cls(**(resolved.benchmark_kwargs or {}))
             evaluator = benchmark.get_evaluator()
             try:
                 selected = [str(t) for t in evaluator.list_tasks()]
                 if resolved.num_tasks is not None:
-                    seed = benchmark.seed
-                    rng = random.Random(seed if seed is not None else 0)
-                    rng.shuffle(selected)
+                    if not sequential:
+                        seed = benchmark.seed
+                        rng = random.Random(seed if seed is not None else 0)
+                        rng.shuffle(selected)
                     selected = selected[: int(resolved.num_tasks)]
             finally:
                 try:

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PREMiSE alignment judge의 근거를 직접 검증하고 이진 평가를 로컬에 저장합니다.">
+  <title>PREMiSE · Alignment audit</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%2314453f'/%3E%3Ctext x='12' y='29' fill='white' font-size='27' font-family='sans-serif'%3EP%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/alignment_dashboard.css">
+  <script src="/alignment_dashboard.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="PREMiSE 대시보드 홈"><span class="brand-icon">P<span>↗</span></span><strong>PREMiSE</strong><span class="brand-divider"></span><span>Alignment audit</span></a>
+    <div class="top-actions"><span class="local-badge"><i></i> LOCAL WORKSPACE</span><button id="export" class="button subtle">평가 JSON 내보내기 ↗</button></div>
+  </header>
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow">HUMAN VERIFICATION / 01</p><h1>판정의 근거를, 직접 확인하세요<span>.</span></h1><p class="intro-description">원본 행동과 replay를 비교하고, 다섯 가지 신뢰도 축을 0 또는 1로 평가합니다.</p></div>
+      <div class="save-indicator" id="save-indicator" role="status" aria-live="polite"><i></i><span id="save-text">로컬 저장 연결 중</span></div>
+    </section>
+    <section class="stats" aria-label="현재 필터의 검증 현황">
+      <div class="stat"><span>검토 대상 판정</span><strong id="stat-total">—</strong><small id="stat-scope">데이터를 연결하고 있습니다</small></div>
+      <div class="stat"><span>검증 완료</span><strong><span id="stat-reviewed">—</span><em id="stat-reviewed-percent"></em></strong><div class="progress"><i id="completion-bar"></i></div></div>
+      <div class="stat"><span>점수 적정성 충족률</span><strong id="stat-calibration">—</strong><small id="stat-calibration-n">사람이 평가한 판정 기준</small></div>
+      <div class="stat"><span>다섯 축 모두 충족</span><strong id="stat-all-pass">—</strong><small id="stat-all-pass-n">검증 완료된 판정 기준</small></div>
+    </section>
+    <details class="analytics" id="analytics"><summary><span><span class="tiny-square">▦</span> 축별 충족률 · benchmark 비교</span><span class="muted">현재 필터 기준 / 미평가 제외</span></summary><div class="analytics-content"><div id="axis-bars" class="axis-bars"></div><div class="table-scroll"><table><caption>Benchmark별 사람 검증 현황</caption><thead><tr><th>Benchmark</th><th>완료 / 전체</th><th>점수 적정성</th><th>모든 축 충족</th></tr></thead><tbody id="benchmark-stats"></tbody></table><p class="small muted">이 비율은 검토한 표본의 충족률입니다. 동일 task·candidate의 판정은 서로 독립적인 표본이 아닐 수 있습니다.</p></div></div></details>
+    <div id="global-message" class="notice" hidden></div>
+    <div class="workspace">
+      <aside class="queue" aria-label="판정 목록">
+        <div class="queue-head"><span class="eyebrow">REVIEW QUEUE</span><button class="icon-button" id="refresh" title="현재 실험 데이터를 새로고침" aria-label="데이터 새로고침">↻</button></div>
+        <label class="field-label" for="run-select">실험 선택</label><select id="run-select" aria-label="실험 선택"></select><p class="run-name" id="run-name"></p>
+        <label class="search-box"><span>⌕</span><input id="search" type="search" placeholder="task ID, candidate, 판정 근거 검색" aria-label="판정 검색"></label>
+        <div class="filters"><label>Benchmark<select id="benchmark-filter"><option value="">전체</option></select></label><label>판정 종류<select id="scope-filter"><option value="">전체</option><option value="current">Current</option><option value="past">Past</option></select></label><label>Judge 점수<select id="score-filter"><option value="">전체</option><option value="0">0 · 불일치</option><option value="0.5">0.5 · 부분 일치</option><option value="1">1 · 일치</option></select></label><label>검증 상태<select id="status-filter"><option value="">전체</option><option value="pending">미완료</option><option value="checked">검증 완료</option><option value="failed">미충족 축 있음</option></select></label></div>
+        <div class="queue-meta"><span id="queue-count">—</span><label class="shuffle-label"><input id="shuffle" type="checkbox"> 무작위 순서</label></div>
+        <div id="case-list" class="case-list" role="list"></div>
+        <div class="pagination"><button id="page-prev" class="button subtle" aria-label="이전 목록 페이지">←</button><span id="page-label"></span><button id="page-next" class="button subtle" aria-label="다음 목록 페이지">→</button></div>
+      </aside>
+      <section class="review-workspace" aria-label="선택한 판정 검증">
+        <div id="empty-state" class="empty-state"><div class="empty-icon">⌕</div><h2>검증할 판정을 선택하세요</h2><p>실제 기록된 근거와 다섯 가지 평가 항목이 여기에 표시됩니다.</p></div>
+        <div id="case-content" hidden>
+          <div class="case-heading"><div><div id="case-badges" class="badges"></div><h2 id="case-title"></h2><p class="muted small" id="case-meta"></p></div><label class="blind-label"><input type="checkbox" id="blind-toggle"> Judge 판정 가리기</label></div>
+          <div id="case-warning" class="notice" hidden></div>
+          <details class="task-context"><summary>Task 요청 · 원본 context · 공개 tool schema</summary><h4>Task 요청</h4><pre id="task-text"></pre><h4>원본 context</h4><pre id="task-context"></pre><h4>공개 tool schema</h4><pre id="tool-contract"></pre></details>
+          <div class="expectation"><div class="expectation-heading"><span class="eyebrow">EXPECTED BEHAVIOR</span><span id="span-label" class="mono small"></span></div><p id="expected-behavior"></p><details><summary>Reflection analysis 보기</summary><p id="reflection-analysis" class="preserve-text"></p></details></div>
+          <section class="judge-card"><div class="judge-header"><span class="eyebrow">ALIGNMENT JUDGE</span><span id="judge-grade" class="judge-grade"></span></div><p id="judge-rationale" class="preserve-text"></p><p id="judge-hidden" class="muted" hidden>판정을 가렸습니다. 행동을 먼저 확인한 뒤 체크를 해제해 점수와 설명을 확인하세요.</p></section>
+          <details class="task-context"><summary>Judge user prompt 보기 · 현재 템플릿으로 재구성</summary><p class="small muted prompt-note">현재 llm.py의 템플릿에 이 판정의 근거를 대입한 내용입니다. 과거 호출 로그 원문과는 다를 수 있습니다. 별도 system prompt는 없습니다.</p><pre id="judge-prompt"></pre></details>
+          <div class="evidence-head"><h3>행동 비교</h3><span class="muted small">기록된 action·observation 전체 · end는 미포함</span></div>
+          <div class="evidence-grid"><section class="evidence-column"><div class="evidence-title"><span class="dot original"></span><h3>Original span</h3><span id="original-count" class="count-badge"></span></div><div id="original-actions" class="action-stream"></div></section><section class="evidence-column"><div class="evidence-title"><span class="dot replay"></span><h3>Candidate replay</h3><span id="replay-count" class="count-badge"></span></div><div id="replay-actions" class="action-stream"></div></section></div>
+          <details class="extra-evidence"><summary>원본 전체 trajectory · replay metadata · mutation</summary><p class="small muted" id="prefix-note"></p><h4>원본 전체 행동</h4><div id="full-original"></div><h4>Replay metadata</h4><pre id="replay-metadata"></pre><h4>Mutation summary · 적용된 변경</h4><pre id="mutation-text"></pre></details>
+          <section class="evaluation"><div class="evaluation-heading"><div><p class="eyebrow">YOUR VERIFICATION</p><h3>다섯 가지 신뢰도 평가</h3></div><span class="evaluation-scale"><b>0</b> 미충족 <b>1</b> 충족</span></div><p class="small muted">직접 확인한 항목만 평가하세요. 버튼을 한 번 더 누르면 미평가로 되돌립니다.</p><div id="axis-controls"></div><label class="field-label" for="review-notes">검증 메모 <span class="muted">선택 · 근거 action 번호나 반례를 기록하세요</span></label><textarea id="review-notes" rows="3" maxlength="20000" placeholder="예: action[3]의 observation과 rationale의 주장이 다름…"></textarea><div class="review-footer"><label class="check-label"><input type="checkbox" id="review-checked"><span>직접 검증 완료</span><small id="review-progress" class="muted">0 / 5 평가</small></label><button id="save-next" class="button primary">완료하고 다음 미검증 →</button></div><div class="review-save-row"><span id="review-save-state" role="status" aria-live="polite">평가·메모·체크가 자동 저장됩니다.</span><button id="retry-save" class="button subtle" hidden>저장 다시 시도</button></div></section>
+          <div class="bottom-nav"><button id="case-prev" class="button subtle">← 이전 판정</button><span class="small muted">키보드: Alt + ← / →</span><button id="case-next" class="button subtle">다음 판정 →</button></div>
+        </div>
+      </section>
+    </div>
+    <footer><span>PREMiSE / Alignment reliability audit</span><span id="storage-path"></span></footer>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

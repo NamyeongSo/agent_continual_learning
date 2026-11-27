@@ -15,6 +15,7 @@ from ...interfaces.registry import (
     load_benchmark,
 )
 from ..context import try_get_context
+from ..experiment_limits import ACTOR_OUTPUT_TOKENS, experiment_limits
 from .model_settings import ModelSettings
 
 
@@ -63,6 +64,7 @@ class BaseEvaluationConfig(BaseModel):
     model: Optional[str] = None
     benchmark_kwargs: Optional[dict[str, Any]] = None
     agent_kwargs: Optional[dict[str, Any]] = None
+    experiment_limits: dict[str, Any] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -86,6 +88,28 @@ class BaseEvaluationConfig(BaseModel):
             benchmark_kwargs = dict(benchmark_kwargs)
 
         agent_kwargs = dict(agent_kwargs)
+        limits = experiment_limits(str(benchmark))
+        if limits:
+            payload["experiment_limits"] = limits
+            # Normalize even old launchers that still request 8,192 tokens.
+            if str(agent) in {"premise", "tool_calling"}:
+                settings = agent_kwargs.get("model_settings") or {}
+                if isinstance(settings, ModelSettings):
+                    settings = settings.model_dump()
+                settings = dict(settings)
+                settings["max_tokens"] = (
+                    None if limits["output_tokens"] is None
+                    else min(settings.get("max_tokens") or ACTOR_OUTPUT_TOKENS, ACTOR_OUTPUT_TOKENS)
+                )
+                agent_kwargs["model_settings"] = settings
+            if str(benchmark) == "terminalbench2":
+                benchmark_kwargs["max_interactions"] = min(
+                    benchmark_kwargs.get("max_interactions") or limits["max_turns"], limits["max_turns"],
+                )
+            if "max_steps" in cls.model_fields:
+                prefix = len((payload.get("replay_prefix") or {}).get("actions", []))
+                remaining = max(1, limits["max_turns"] - prefix)
+                payload["max_steps"] = min(payload.get("max_steps") or remaining, remaining)
         if "model_settings" in agent_kwargs:
             model_cfg = agent_kwargs["model_settings"]
             if model_cfg is None:

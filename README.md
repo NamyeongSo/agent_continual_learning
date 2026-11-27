@@ -112,7 +112,8 @@ exgentic list benchmarks
 | Benchmark | Description |
 |-----------|-------------|
 | **tau2** | Simulated customer support tasks across multiple domains (mock, retail, airline, telecom) |
-| **appworld** | Multi-app API environment testing agents' ability to interact with application interfaces |
+| **appworld** | Interactive Python code generation in a multi-app environment (legacy API function-calling is selectable) |
+| **swemilestone** | [Continuous software development with milestone sessions](docs/swemilestone.md), Terminus-2 overflow recovery, official Docker grading, and SSH server execution |
 | **browsecompplus** | Web search and browsing benchmark for information retrieval and navigation |
 | **swebench** | Software engineering benchmark for resolving real-world GitHub issues |
 | **hotpotqa** | Multi-hop question answering over Wikipedia |

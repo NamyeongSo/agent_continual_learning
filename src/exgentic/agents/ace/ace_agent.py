@@ -7,9 +7,11 @@ from typing import Any, ClassVar, Optional
 
 from pydantic import ConfigDict
 
+from ...actor_context import ActorContextMode
 from ...core.agent import Agent
 from ...core.types import ModelSettings
 from ...utils.settings import RunnerName
+from .playbook_utils import PlaybookEditMode
 
 
 class ACEAgent(Agent):
@@ -25,6 +27,7 @@ class ACEAgent(Agent):
     max_num_rounds: int = 3
     curator_frequency: int = 1
     playbook_token_budget: int = 80000
+    playbook_edit_mode: PlaybookEditMode = "add_only"
 
     shuffle_mode: str = "isolated"
 
@@ -32,12 +35,17 @@ class ACEAgent(Agent):
 
     initial_playbook: Optional[str] = None
     initial_playbook_path: Optional[str] = None
+    actor_context: ActorContextMode = "legacy"
 
     use_json_mode: bool = True
     training_time: bool = False
+    evaluation_mode: bool = False
     runner: RunnerName | None = None
     model_settings: ModelSettings | None = None
     enable_thinking: bool | None = None
+    allow_shared_thinking: bool = False
+    temperature_override: float | None = None
+    analysis_temperature_override: float | None = None
 
     enable_tool_shortlisting: bool = False
     max_selected_tools: int = 30
@@ -67,12 +75,18 @@ class ACEAgent(Agent):
             "max_num_rounds": self.max_num_rounds,
             "curator_frequency": self.curator_frequency,
             "playbook_token_budget": self.playbook_token_budget,
+            "playbook_edit_mode": self.playbook_edit_mode,
             "shuffle_mode": self.shuffle_mode,
             "initial_playbook": pb,
+            "actor_context": self.actor_context,
             "use_json_mode": self.use_json_mode,
             "training_time": self.training_time,
+            "evaluation_mode": self.evaluation_mode,
             "model_settings": self.model_settings,
             "enable_thinking": self.enable_thinking,
+            "allow_shared_thinking": self.allow_shared_thinking,
+            "temperature_override": self.temperature_override,
+            "analysis_temperature_override": self.analysis_temperature_override,
             "benchmark_id": self.benchmark_id,
             "use_bulletpoint_analyzer": self.use_bulletpoint_analyzer,
             "bulletpoint_analyzer_threshold": self.bulletpoint_analyzer_threshold,

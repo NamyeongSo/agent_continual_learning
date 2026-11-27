@@ -95,6 +95,7 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 outputs/
+outputs_arr_oct/
 # OS files
 .DS_Store
 Thumbs.db
@@ -121,3 +122,44 @@ src/exgentic/benchmarks/browsecompplus/assets
 exgentic_session_cache/
 scripts/litellm/docker_vm_data/Ubuntu.qcow2.zip
 docs/TEAM_PRIVATE_DOCKER_ACCESS.md
+
+# Private research journal records, attachments, logs, and local backups
+.experiment-journal/
+
+# Local experiment artifacts and archives: preserve code, not rollout histories.
+/team_prompt/
+/acr_oct/
+/acr_oct.zip
+/preliminary_score.pdf
+/preliminary_score.tex
+*.log
+*.log.*
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.qcow2
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.ckpt
+*.sqlite
+*.sqlite3
+*.db
+**/llm_calls/
+**/training_history*/
+**/raw/
+**/__MACOSX/
+/models/
+/checkpoints/
+/hf_cache/
+.env.*
+!.env.example
+.openai/
+.ruff_cache/
+*.pem
+id_rsa
+id_ed25519
+credentials.json
+auth.json

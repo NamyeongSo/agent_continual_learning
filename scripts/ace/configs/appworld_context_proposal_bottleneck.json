@@ -1,0 +1,111 @@
+{
+  "experiment": "ace_appworld_context_proposal_bottleneck",
+  "status": "planned",
+  "benchmark": "appworld",
+  "appworld_policy_source": "scripts/premise/policies/appworld_teammate_completion.txt",
+  "appworld_policy_sha256": "082147d2215b74ce52131e6ef30baa342aeaf4099e2e475f0bbb97fed9fe195d",
+  "benchmark_kwargs": {
+    "subset": "test_challenge",
+    "policy_override": "This environment provides a set of applications, each exposing a predefined set of APIs that may be used to perform tasks on behalf of the supervisor. The applications include: {allowed}.\nThe available applications and their APIs are fixed for the task.\n\nSupervisor account credentials (such as emails, usernames, and passwords) are available through the supervisor application's APIs and are accessed from there when required.\n\nIf an application requires an access token to perform authenticated operations, the access token is obtained by calling that application's authentication/login API using the credentials retrieved from the supervisor application. Access tokens are not provided by the supervisor application.\n\nReferences to people (e.g., friends, family, roommates) correspond to entries in the phone application.\nReferences to files or storage correspond to the file_system application, not the local machine filesystem.\n\nTime-based instructions (e.g., 'this month', 'yesterday') are interpreted with full calendar boundary ranges.\nIf an API returns paginated results, all pages constitute the complete result.\n\nThe environment consists only of the provided applications and their documented APIs and parameters. No additional endpoints, methods, arguments, or capabilities are assumed beyond those explicitly defined.\n\nOnce you have completed the task, make sure to call apis.supervisor.complete_task().\nIn this tool interface, that API is exposed as the finish action. If the task asked for some information, return it as the answer argument, i.e. apis.supervisor.complete_task(answer=<answer>). Many tasks do not require an answer. In those cases, just call apis.supervisor.complete_task() without passing any argument: call finish with empty arguments {}. Do not supply a completion summary as the answer unless the task explicitly requests it.\nIf the task cannot be completed using the available applications and APIs, the task may be marked as failed.\n",
+    "use_cache": false
+  },
+  "apply_policy_to": [
+    "shared_initial_rollouts",
+    "without_gt_updated_context_rollouts",
+    "with_gt_updated_context_rollouts"
+  ],
+  "model": "openai/Qwen/Qwen3.8-27B-FP8",
+  "base_url": "http://127.0.0.1:8006/v1",
+  "gpu_physical_id": 1,
+  "model_settings_source": "outputs/ace_bfcl50_appworld50_train_t1_qwen38_20261116/model_settings.json",
+  "model_settings_source_sha256": "49731103577379cb15077cef87836e86ce345c016ebd5d422d93a4bd1c3bda80",
+  "model_settings": {
+    "reasoning_effort": "xhigh",
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 0.0,
+    "max_tokens": null,
+    "timeout": 600,
+    "num_retries": 1,
+    "extra_body": {
+      "top_k": 20,
+      "min_p": 0.0,
+      "repetition_penalty": 1.0,
+      "chat_template_kwargs": {
+        "enable_thinking": true,
+        "preserve_thinking": true
+      }
+    }
+  },
+  "model_settings_apply_to": [
+    "actor",
+    "reflector",
+    "curator"
+  ],
+  "actor_limits": {
+    "input_tokens_per_turn": 100000,
+    "output_tokens_per_turn": null,
+    "max_turns": 40,
+    "policy_version": "actor-turn-v3-output-unlimited-appworld-turncap-pct-v1"
+  },
+  "primary_metric": "individual_test_pass_fraction",
+  "stage_barrier": true,
+  "stages": [
+    {
+      "stage": 1,
+      "name": "initial_rollouts",
+      "total_jobs": 250,
+      "max_workers": 50
+    },
+    {
+      "stage": 2,
+      "name": "reflection_update",
+      "total_jobs": 500,
+      "max_workers": 50,
+      "jobs_per_arm": {
+        "without_gt": 250,
+        "with_gt": 250
+      }
+    },
+    {
+      "stage": 3,
+      "name": "updated_context_rollouts",
+      "total_jobs": 1500,
+      "max_workers": 50,
+      "jobs_per_arm": {
+        "without_gt": 750,
+        "with_gt": 750
+      }
+    }
+  ],
+  "progress_logging": {
+    "progress_log": "progress.log",
+    "status_file": "status.json",
+    "heartbeat_interval_seconds": 30,
+    "log_events": [
+      "stage_started",
+      "heartbeat",
+      "stage_completed",
+      "infrastructure_error",
+      "run_stopped"
+    ],
+    "fields": [
+      "timestamp",
+      "stage",
+      "stage_name",
+      "completed",
+      "total",
+      "percent",
+      "running",
+      "pending",
+      "errors",
+      "stage_elapsed",
+      "by_arm"
+    ],
+    "completed_definition": "Jobs with valid saved outputs, including measured PCT=0 outcomes.",
+    "errors_definition": "Jobs with unresolved infrastructure errors; not measured task failures."
+  },
+  "turn_limit_scoring": "official_pct_at_limit",
+  "protocol_revision": 2,
+  "stage3_repeats_per_context": 3
+}

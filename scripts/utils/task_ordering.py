@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from exgentic.interfaces.registry import load_benchmark
 
 
-SEQUENTIAL_BENCHMARK_ORDER = ("bfcl", "appworld", "swebench")
+SEQUENTIAL_BENCHMARK_ORDER = ("bfcl", "appworld", "swebench", "terminalbench2")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -107,30 +107,33 @@ def split_task_ids(
     seed: int,
     train_count: int = 50,
     val_count: int = 50,
+    test_count: int = 50,
 ) -> dict[str, list[str]]:
-    """Deterministically split one benchmark's tasks into disjoint train/val sets.
+    """Deterministically split tasks into disjoint train/val/test sets.
 
     Task IDs are sorted before shuffling so the split is independent of the
     evaluator's enumeration order. The same per-benchmark seed derivation is
     used by the existing experiment selector, but this is a separate policy:
     existing experiments are not silently switched to a new task set.
     """
-    if train_count < 1 or val_count < 1:
-        raise ValueError("train_count and val_count must both be positive")
+    if train_count < 1 or val_count < 1 or test_count < 0:
+        raise ValueError("train_count and val_count must be positive; test_count must be nonnegative")
     ids = [str(task_id) for task_id in task_ids]
     if len(ids) != len(set(ids)):
         raise ValueError(f"{benchmark_slug}: duplicate task IDs in evaluator listing")
-    required = train_count + val_count
+    val_end = train_count + val_count
+    required = val_end + test_count
     if len(ids) < required:
         raise ValueError(
-            f"{benchmark_slug}: need {required} tasks for train/val, found {len(ids)}"
+            f"{benchmark_slug}: need {required} tasks for train/val/test, found {len(ids)}"
         )
 
     shuffled = sorted(ids)
     random.Random(_derive_seed(seed, benchmark_slug)).shuffle(shuffled)
     return {
         "train": shuffled[:train_count],
-        "val": shuffled[train_count:required],
+        "val": shuffled[train_count:val_end],
+        "test": shuffled[val_end:required],
     }
 
 
@@ -140,6 +143,8 @@ def select_train_val_task_splits(
     seed: int,
     train_count: int = 50,
     val_count: int = 50,
+    test_count: int = 50,
+    per_benchmark_counts: dict[str, dict[str, int]] | None = None,
 ) -> dict[str, dict[str, list[str]]]:
     """Discover task IDs for each benchmark and apply ``split_task_ids``."""
     splits: dict[str, dict[str, list[str]]] = {}
@@ -154,12 +159,14 @@ def select_train_val_task_splits(
                 evaluator.close()
         finally:
             benchmark.close()
+        counts = (per_benchmark_counts or {}).get(slug, {})
         splits[slug] = split_task_ids(
             task_ids,
             benchmark_slug=slug,
             seed=seed,
-            train_count=train_count,
-            val_count=val_count,
+            train_count=counts.get("train", train_count),
+            val_count=counts.get("val", val_count),
+            test_count=counts.get("test", test_count),
         )
     return splits
 

@@ -26,6 +26,7 @@ class Observer:
     def on_session_scoring(self, session) -> None: ...
     def on_session_success(self, session, score, agent) -> None: ...
     def on_session_error(self, session, error) -> None: ...
+    def on_session_execution_error(self, session_config, error) -> None: ...
     def on_session_reuse(self, task_result) -> None: ...
 
     # Step-level: agent.react() returned an action
@@ -44,12 +45,21 @@ class Observer:
 | `run_config` | `RunConfig` | The run configuration |
 | `results` | `RunResults` | Aggregated results (available in `on_run_success`) |
 | `session` | `Session` | Session object with `session_id`, `task_id`, `paths` |
+| `session_config` | `SessionConfig` | Task configuration, including when session creation failed |
 | `agent` | `Agent` | Agent config object with `get_cost()` |
 | `observation` | `Observation \| None` | Observation returned by the benchmark (None on first step) |
 | `action` | `Action \| None` | Action returned by the agent (None if agent is done) |
 | `score` | `SessionScore` | Score with `score`, `success`, `is_finished`, `session_metrics`, `session_metadata` |
 | `task_result` | `SessionResults` | Results for a session that was skipped/reused from cache |
 | `error` | `Exception` | The exception that occurred |
+
+Task execution exceptions, including subprocess startup failures such as
+`OSError: [Errno 7] Argument list too long`, are recorded as `status=error` and
+execution continues with the remaining tasks. Exceptions outside the session
+loop use `on_session_execution_error`; their results include the error message,
+type, OS error number when available, and `skipped=true`. User cancellation
+still stops the run. Failed tasks remain eligible for retry when the run is
+explicitly resumed.
 
 ---
 

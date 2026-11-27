@@ -1,0 +1,58 @@
+{
+  "experiment": "ace_appworld_context_proposal_bottleneck",
+  "model": "openai/openai/gpt-oss-120b",
+  "model_revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
+  "base_url": "http://127.0.0.1:8006/v1",
+  "gpu_physical_id": 1,
+  "model_settings": {
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "reasoning_effort": "low",
+    "max_tokens": null,
+    "timeout": 600,
+    "num_retries": 1
+  },
+  "actor_limits": {
+    "input_tokens_per_turn": 100000,
+    "output_tokens_per_turn": null,
+    "max_turns": 40,
+    "policy_version": "actor-turn-v3-output-unlimited-appworld-turncap-pct-v1"
+  },
+  "turn_limit_scoring": "official_pct_at_limit",
+  "appworld_policy_sha256": "082147d2215b74ce52131e6ef30baa342aeaf4099e2e475f0bbb97fed9fe195d",
+  "actor_context": "shared-empty-v1",
+  "playbook_edit_mode": "add_only",
+  "primary_metric": "individual_test_pass_fraction",
+  "generation_mode": "reasoning_effort",
+  "stage3_repeats_per_context": 3,
+  "stages": [
+    {
+      "stage": 1,
+      "name": "initial_rollouts",
+      "total_jobs": 250,
+      "max_workers": 100
+    },
+    {
+      "stage": 2,
+      "name": "reflection_update",
+      "total_jobs": 500,
+      "max_workers": 100,
+      "jobs_per_arm": {
+        "without_gt": 250,
+        "with_gt": 250
+      }
+    },
+    {
+      "stage": 3,
+      "name": "updated_context_rollouts",
+      "total_jobs": 1500,
+      "max_workers": 100,
+      "jobs_per_arm": {
+        "without_gt": 750,
+        "with_gt": 750
+      }
+    }
+  ],
+  "original_protocol_sha256": "03f86b44c35645b43b0032f222bb2092726ba6b145ec83ec94b539c2f86b3831",
+  "source_relative_path": "outputs/ace_appworld_gpt_oss120b_add_only_20261121/low/reflection/protocol.json"
+}

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 
@@ -27,7 +28,7 @@ async def acheck_model_accessible(model: str) -> None:
 def check_model_accessible_sync(
     model: str,
     logger: logging.Logger,
-    timeout: float = 15.0,
+    timeout: float = 120.0,
 ) -> None:
     """Synchronous wrapper for model health check.
 
@@ -41,9 +42,15 @@ def check_model_accessible_sync(
     """
     from ...utils.sync import run_sync
 
+    async def checked_request() -> None:
+        # Cancel the actual request on timeout rather than abandon a still-live
+        # coroutine when the synchronous Future's wait expires.
+        async with asyncio.timeout(timeout):
+            await acheck_model_accessible(model)
+
     logger.info("Running LiteLLM model health check (model=%s)", model)
     try:
-        run_sync(acheck_model_accessible(model), timeout=timeout)
+        run_sync(checked_request(), timeout=timeout + 5)
         logger.info("Model health check passed for %s", model)
     except Exception as exc:
         error_msg = getattr(exc, "message", "") or str(exc) or repr(exc)

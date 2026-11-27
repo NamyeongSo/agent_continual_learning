@@ -97,6 +97,18 @@ def test_compact_trace_reconstructs_history_without_repeating_it(tmp_path, monke
     assert load_trace_cost(compact_path, "openai/gpt-4o-mini") == pytest.approx(1.2)
 
 
+def test_trace_reader_requires_explicit_fallback_for_missing_definition(tmp_path) -> None:
+    trace = tmp_path / "trace.jsonl"
+    reference = "messages:missing"
+    trace.write_text(json.dumps({"trace_format": "dedup_v1", "request": {"messages_refs": [reference]}}) + "\n")
+    with pytest.raises(KeyError):
+        list(iter_expanded_trace_rows(trace))
+    fallback = {reference: {"role": "user", "content": "saved input"}}
+    rows = list(iter_expanded_trace_rows(trace, definition_fallback=fallback))
+    assert rows[0]["request"]["messages"] == [fallback[reference]]
+    assert fallback == {reference: {"role": "user", "content": "saved input"}}
+
+
 def test_trace_logger_reads_context_from_metadata(tmp_path, monkeypatch) -> None:
     env_log_path = tmp_path / "env_trace.jsonl"
     monkeypatch.setenv(FILE_ENV, str(env_log_path))

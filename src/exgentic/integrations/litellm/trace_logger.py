@@ -714,9 +714,9 @@ class AsyncTraceLogger(TraceLogger):
         return None
 
 
-def iter_expanded_trace_rows(log_path: str | Path):
+def iter_expanded_trace_rows(log_path: str | Path, *, definition_fallback: dict[str, Any] | None = None):
     """Yield LLM call rows with ``dedup_v1`` request content reconstructed."""
-    definitions: dict[str, Any] = {}
+    definitions: dict[str, Any] = dict(definition_fallback or {})
     with open(log_path, encoding="utf-8") as log_file:
         for line in log_file:
             if not line.strip():

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fb">
+  <title>Qwen3.6 · 실험 설정</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/llm_calls.js"></script>
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#overview"><span class="brand-mark">E</span><span>EXGENTIC<small>실험 설정 탐색기</small></span></a>
+    <div class="cohort-note"><span class="small-caps">EXPERIMENT</span><strong>Qwen3.6 · Isolated</strong><span>원본 Epoch 1 → Epoch 2</span></div>
+    <nav id="navigation" aria-label="페이지 탐색">
+      <a href="#overview" data-view="overview">실험 한눈에 보기</a>
+      <a href="#methods" data-view="methods">베이스라인 4종</a>
+      <a href="#initial-context" data-view="initial-context">공통 초기 context <span>NEW</span></a>
+      <a href="#shared-reflection" data-view="shared-reflection">공통 reflector · 새 실험 <span>36</span></a>
+      <a href="#llm-calls" data-view="llm-calls">LLM 응답 · Reasoning <span>LIVE</span></a>
+      <a href="#benchmarks" data-view="benchmarks">벤치마크 구성</a>
+      <a href="#tasks" data-view="tasks">Datapoint 탐색 <span>706</span></a>
+      <a href="#splits" data-view="splits">Split · Seed · 순서</a>
+      <a href="#serving" data-view="serving">모델 서빙 · 호출</a>
+      <a href="#prompts" data-view="prompts">프롬프트 전문</a>
+      <a href="#runs" data-view="runs">실행별 설정 <span>36</span></a>
+      <a href="#tokens" data-view="tokens">학습 · 평가 토큰</a>
+      <a href="#sources" data-view="sources">재현 · 근거 자료</a>
+    </nav>
+    <div class="sidebar-bottom"><a href="http://166.104.110.49:8878/#experiment/exp-20261109-68f88079" target="_blank" rel="noopener">실험 기록장 ↗</a><span id="snapshot-date">설정 자료를 읽는 중</span></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><button class="icon-button mobile-menu" id="menu-button" aria-label="메뉴 열기">☰</button><div class="breadcrumb">연구 실험 <span>/</span> <strong id="current-location">실험 한눈에 보기</strong></div><div class="top-actions"><span class="live-pill" id="service-status"><i></i>상태 확인 중</span><a class="button small" href="/download/settings.json">설정 JSON ↓</a></div></header>
+    <main id="main" tabindex="-1"><div class="loading">실제 실행 설정과 instruction을 불러오고 있습니다.</div></main>
+    <footer>기존 실행은 frozen snapshot·manifest·세션 기록을, 새 공통 context는 현재 프로토콜 코드를 표시합니다. 근거 링크로 원본과 SHA-256을 확인할 수 있습니다.</footer>
+  </div>
+  <dialog id="source-dialog"><div class="dialog-top"><div><span class="small-caps">SOURCE EVIDENCE</span><h2 id="source-title"></h2></div><button class="icon-button" id="source-close" aria-label="닫기">✕</button></div><p class="source-path" id="source-path"></p><div class="hash-line" id="source-sha"></div><pre id="source-text"></pre></dialog>
+  <div role="status" id="toast" aria-live="polite"></div>
+</body>
+</html>

@@ -18,6 +18,7 @@ from litellm import (
 )
 
 from ...core.agent_instance import AgentInstance
+from ...core.experiment_limits import ExperimentBudgetExceededError, actor_completion
 from ...core.types import (
     Action,
     ActionType,
@@ -648,7 +649,7 @@ class AMemAgentInstance(AgentInstance):
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
-                response = litellm.completion(**call_kwargs)
+                response = actor_completion(self, call_kwargs)
                 choice = response["choices"][0] if response.get("choices") else None
                 if choice:
                     msg = choice.get("message") or {}
@@ -665,6 +666,8 @@ class AMemAgentInstance(AgentInstance):
                             time.sleep(2 ** attempt)
                             continue
                 return response
+            except ExperimentBudgetExceededError:
+                raise
             except Exception as exc:
                 self.logger.warning(
                     "A-Mem LLM call attempt %d/%d failed: %s",

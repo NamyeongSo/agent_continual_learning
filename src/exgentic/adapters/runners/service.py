@@ -6,14 +6,16 @@
 from __future__ import annotations
 
 import base64
+import os
 import threading
 import time
-from typing import Any, Optional
+from typing import Any
 
 import cloudpickle as cp
 import httpx
 from fastapi import FastAPI
 from pydantic import BaseModel as PydanticBaseModel
+from starlette.concurrency import run_in_threadpool
 
 from .transport import ObjectHost, ObjectProxy, Transport, deserialize_error, serialize_error
 
@@ -37,11 +39,11 @@ class SetRequest(PydanticBaseModel):
 
 class RPCResponse(PydanticBaseModel):
     status: str  # "ok" | "error"
-    result: Optional[str] = None  # base64(cloudpickle)
-    error_type: Optional[str] = None
-    error_msg: Optional[str] = None
-    error_tb: Optional[str] = None
-    error_pickled: Optional[str] = None  # base64(cloudpickle'd exception)
+    result: str | None = None  # base64(cloudpickle)
+    error_type: str | None = None
+    error_msg: str | None = None
+    error_tb: str | None = None
+    error_pickled: str | None = None  # base64(cloudpickle'd exception)
 
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -75,29 +77,38 @@ def _error_response(exc: Exception) -> RPCResponse:
 def create_app(host: ObjectHost) -> FastAPI:
     app = FastAPI()
 
+    async def dispatch(op: str, name: str, *args: Any, **kwargs: Any) -> Any:
+        if getattr(host.obj, "requires_main_thread", False):
+            if threading.current_thread() is not threading.main_thread():
+                raise RuntimeError("This object requires a service running in the main thread; use venv or docker")
+            # AppWorld's Python execution timeout installs a signal handler.
+            # Async endpoints run on the server loop instead of a worker thread.
+            return host.handle(op, name, *args, **kwargs)
+        return await run_in_threadpool(host.handle, op, name, *args, **kwargs)
+
     @app.get("/health")
     def health():
-        return {"status": "ok"}
+        return {"status": "ok", "pid": os.getpid()}
 
     @app.post("/call")
-    def handle_call(req: CallRequest) -> RPCResponse:
+    async def handle_call(req: CallRequest) -> RPCResponse:
         try:
-            result = host.handle("call", req.method, *_decode(req.args), **_decode(req.kwargs))
+            result = await dispatch("call", req.method, *_decode(req.args), **_decode(req.kwargs))
             return RPCResponse(status="ok", result=_encode(result))
         except Exception as exc:
             return _error_response(exc)
 
     @app.post("/get")
-    def handle_get(req: GetRequest) -> RPCResponse:
+    async def handle_get(req: GetRequest) -> RPCResponse:
         try:
-            return RPCResponse(status="ok", result=_encode(host.handle("get", req.name)))
+            return RPCResponse(status="ok", result=_encode(await dispatch("get", req.name)))
         except Exception as exc:
             return _error_response(exc)
 
     @app.post("/set")
-    def handle_set(req: SetRequest) -> RPCResponse:
+    async def handle_set(req: SetRequest) -> RPCResponse:
         try:
-            host.handle("set", req.name, _decode(req.value))
+            await dispatch("set", req.name, _decode(req.value))
             return RPCResponse(status="ok")
         except Exception as exc:
             return _error_response(exc)
@@ -121,9 +132,9 @@ def serve(obj: Any, host: str = "0.0.0.0", port: int = 8080) -> None:
 class HTTPTransport(Transport):
     """Talks to an HTTP server hosting an ObjectHost."""
 
-    def __init__(self, base_url: str, timeout: float = 30.0) -> None:
+    def __init__(self, base_url: str, timeout: float | None = 30.0) -> None:
         self._base_url = base_url.rstrip("/")
-        self._client = httpx.Client(timeout=timeout)
+        self._client = httpx.Client(timeout=httpx.Timeout(None, connect=30.0) if timeout is None else timeout)
 
     def _rpc(self, endpoint: str, payload: dict) -> Any:
         resp = self._client.post(f"{self._base_url}{endpoint}", json=payload)

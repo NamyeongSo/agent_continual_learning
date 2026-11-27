@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 import textwrap
 from pathlib import Path
@@ -382,11 +383,25 @@ class SWEBenchSession(Session):
             result = self.env.execute(command="git rev-parse HEAD", cwd=self.container_repo_dir)
             self.container_base_commit = result["output"].strip()
 
-        if self.container_base_commit != self._instance["base_commit"]:
-            self.logger.error(
-                f"ENV | Base commit mismatch: expected {self._instance['base_commit']} "
-                f"| got {self.container_base_commit}"
+        expected_commit = str(self._instance["base_commit"])
+        if self.container_base_commit != expected_commit:
+            if re.fullmatch(r"[0-9a-fA-F]{40}", expected_commit) is None:
+                raise ValueError(f"Invalid SWE-bench base commit: {expected_commit!r}")
+            self.logger.warning(
+                "ENV | Image HEAD %s differs from dataset base commit %s; resetting fresh container",
+                self.container_base_commit, expected_commit,
             )
+            reset = self.env.execute(
+                command=f"git reset --hard {expected_commit}", cwd=self.container_repo_dir,
+            )
+            if reset["returncode"] != 0:
+                raise RuntimeError(f"Unable to restore SWE-bench base commit: {reset['output']}")
+            result = self.env.execute(command="git rev-parse HEAD", cwd=self.container_repo_dir)
+            self.container_base_commit = result["output"].strip()
+            if self.container_base_commit != expected_commit:
+                raise RuntimeError(
+                    f"SWE-bench base commit remains {self.container_base_commit}; expected {expected_commit}"
+                )
 
 
 # =============================================================================

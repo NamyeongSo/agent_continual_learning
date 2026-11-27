@@ -5,10 +5,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import threading
 from unittest.mock import patch
 
 import pytest
+
+from exgentic.integrations.litellm import health
 from exgentic.integrations.litellm.health import check_model_accessible_sync
 
 
@@ -36,6 +40,7 @@ def test_health_check_extracts_message_attribute_from_exception(caplog):
 
         with pytest.raises(RuntimeError) as exc_info:
             check_model_accessible_sync("test-model", logger)
+        mock_run_sync.call_args.args[0].close()
 
         error_msg = str(exc_info.value)
         assert "API key authentication failed" in error_msg
@@ -55,6 +60,7 @@ def test_health_check_falls_back_to_str_when_no_message_attribute(caplog):
 
         with pytest.raises(RuntimeError) as exc_info:
             check_model_accessible_sync("test-model", logger)
+        mock_run_sync.call_args.args[0].close()
 
         error_msg = str(exc_info.value)
         assert "Standard error message" in error_msg
@@ -79,7 +85,23 @@ def test_health_check_uses_repr_as_last_resort(caplog):
 
         with pytest.raises(RuntimeError) as exc_info:
             check_model_accessible_sync("test-model", logger)
+        mock_run_sync.call_args.args[0].close()
 
         error_msg = str(exc_info.value)
         assert "EmptyError" in error_msg
         assert "test-model" in error_msg
+
+
+def test_timed_out_probe_is_cancelled_and_does_not_leave_a_request_running(monkeypatch):
+    cancelled = threading.Event()
+
+    async def slow_probe(_model):
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    monkeypatch.setattr(health, "acheck_model_accessible", slow_probe)
+    with pytest.raises(RuntimeError, match="is not accessible: TimeoutError"):
+        check_model_accessible_sync("slow-model", logging.getLogger("test"), timeout=0.02)
+    assert cancelled.is_set()

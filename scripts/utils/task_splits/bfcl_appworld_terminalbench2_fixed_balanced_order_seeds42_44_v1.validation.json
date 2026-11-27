@@ -1,0 +1,90 @@
+{
+  "passed": true,
+  "canonical_manifest_sha256": "407d4ca24ba09e84c9380ce665e1868c3bf08856721c38fbdd567333abea75eb",
+  "order_seeds": [
+    42,
+    43,
+    44
+  ],
+  "benchmarks": {
+    "bfcl": {
+      "membership_identical_across_seeds": true,
+      "ordered_lists_differ_across_seeds": true,
+      "ordered_sha256": {
+        "42": {
+          "train": "7e4297ace779124d5c4b023ce28870eeceb575aff047b6c51167d74dfdc8673b",
+          "val": "177b7b819ee6e0b19a323619364481dfeda3a56ef6295985db535fe7af599eb5",
+          "test": "f20c823beb57febfca2f3e22cac8b45ecad9940fad6f2360700699efd4ae1d38"
+        },
+        "43": {
+          "train": "b66735af4f1fae4dd02bf5616f50454534847972abd5664e9b17cffdc3a37de7",
+          "val": "bfc675bb1d29ae9a96cbc325bc9fd26def5802751f5216cfa0a6ddf923eb2b73",
+          "test": "333312ae5d605e7201137633969a094f05efe54948ca45ab13a70b9228e9d8f4"
+        },
+        "44": {
+          "train": "109d1aafa7185d19a5b88295946ac64b0793a665eb3dc5728a4f372cfb5ef93d",
+          "val": "26a6c8ce4089100c06cd3ec67d47676b8644012c3c9be1a588b2a5bebd2af2dc",
+          "test": "dcb75eae4452a7c07cbdf4ca07dde122779a968fd27ee173527b1da6317c977a"
+        }
+      },
+      "membership_sha256": {
+        "train": "9a9aebc0e25363e7728b3c7218877adcb933265ed7b91a40da4ee9265cad4a43",
+        "val": "eec2999f93d3428db10eed8fef575631c35889a28ebe0a838a349a7443771018",
+        "test": "513b6a350d8dca1922b97e41686ff1a3d7c596011bd7dd550ff0738f50ee955e"
+      }
+    },
+    "appworld": {
+      "membership_identical_across_seeds": true,
+      "ordered_lists_differ_across_seeds": true,
+      "ordered_sha256": {
+        "42": {
+          "train": "0d4bcf7723c3a1e4a139b21434be63774996a5c0b57f279ac9454bf97f02b89d",
+          "val": "8b4cbfa0c268622cb4f3223e91a7ed25160134e5722df187ea1bf5178a273490",
+          "test": "a8b0bbc1b5d0f686288032fa23a6613a3b6351bb543aaf4bfdc616af9838a898"
+        },
+        "43": {
+          "train": "cf70754597c5beaf1394d1c9cde595736360dbadee478675379f96f31290c72b",
+          "val": "57689c27961c9749aa4b2b508faf129f890f2e629494844d8676f3c9003d43c8",
+          "test": "b6ca25ed1a3d6765cc422411a9da5e15a13c94a6b5373a6782acf09a5ca78dcf"
+        },
+        "44": {
+          "train": "19c823ae33c70c42324420e53b628846fbfa2a2d279dc7e14c9aa97e201cb281",
+          "val": "f753145e8303e0d00b28add684c50143155efdd62fc16267dddb84534705f37a",
+          "test": "69547a68a86c2fdb50187331dfb8ff3ed310bea5755724f30f516ecb181dd7a6"
+        }
+      },
+      "membership_sha256": {
+        "train": "c1525d5eded6513945980f943ed1207eab8ac3e9d1cab7f81e6b39a3652c3e2c",
+        "val": "611d6736d83a90c984c06b64c5bef7ae93a281097254efee2664e1ae304379b4",
+        "test": "a9beaab3fdac738f83528ceddc98dc7480c7be597c49b49caf9348718ed10415"
+      }
+    },
+    "terminalbench2": {
+      "membership_identical_across_seeds": true,
+      "ordered_lists_differ_across_seeds": true,
+      "ordered_sha256": {
+        "42": {
+          "train": "6a3939b1528e901f21a38fbdc2725891e955fc47f9ec5c4e30ddc4df0b8cad29",
+          "val": "1b17788f570bf8c14e9a854ea07fa02c487e43485bd10248381a5263f702d106",
+          "test": "f60855599643e7fd11c6d6d2028e5ad3f10810d42512840ee1085428775adef3"
+        },
+        "43": {
+          "train": "8f3ed0660c5f34335f0ad7c0b56d5e76d1ec4a2fc8078afdb1efb4dfdad957fd",
+          "val": "ae266548842e8be0776e11e71ac4c401445d82049783b0e407d7725a2d053735",
+          "test": "a5a8fc34374fb9cfb322c4ef3d5b384f36c1f79018267f2a35924e3cc22ac38b"
+        },
+        "44": {
+          "train": "6524a7ed7e35f09696a48aefa00d699839705940988eabb6d3ddf0dd9d343982",
+          "val": "0f297e5120df473f2b32842dc10b32d61517427a9dc94da821259cc15782d85c",
+          "test": "ec0635fc6aace75295101083e7e75a3d0dc31f20456c98de76a287902197e5e4"
+        }
+      },
+      "membership_sha256": {
+        "train": "15236e37ccb4df0bc4a851b2ea8a0dd8a8e66edb764cb1b7e6ba72ebe241f086",
+        "val": "212f85348708a38f66480cbe8d5ab5a47587b802e23b7d2ab61ea6a72796e9ca",
+        "test": "d236deba7310e0c66b122f4922236dcae0043b561c6192fc4df8cbd72b34a9a4"
+      }
+    }
+  },
+  "ordered_manifest_sha256": "2444175dabb08d8032713479fed75186b8e4e6145374dd1f584e59282cd24da3"
+}

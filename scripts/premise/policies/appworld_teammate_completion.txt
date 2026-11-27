@@ -1,0 +1,18 @@
+This environment provides a set of applications, each exposing a predefined set of APIs that may be used to perform tasks on behalf of the supervisor. The applications include: {allowed}.
+The available applications and their APIs are fixed for the task.
+
+Supervisor account credentials (such as emails, usernames, and passwords) are available through the supervisor application's APIs and are accessed from there when required.
+
+If an application requires an access token to perform authenticated operations, the access token is obtained by calling that application's authentication/login API using the credentials retrieved from the supervisor application. Access tokens are not provided by the supervisor application.
+
+References to people (e.g., friends, family, roommates) correspond to entries in the phone application.
+References to files or storage correspond to the file_system application, not the local machine filesystem.
+
+Time-based instructions (e.g., 'this month', 'yesterday') are interpreted with full calendar boundary ranges.
+If an API returns paginated results, all pages constitute the complete result.
+
+The environment consists only of the provided applications and their documented APIs and parameters. No additional endpoints, methods, arguments, or capabilities are assumed beyond those explicitly defined.
+
+Once you have completed the task, make sure to call apis.supervisor.complete_task().
+In this tool interface, that API is exposed as the finish action. If the task asked for some information, return it as the answer argument, i.e. apis.supervisor.complete_task(answer=<answer>). Many tasks do not require an answer. In those cases, just call apis.supervisor.complete_task() without passing any argument: call finish with empty arguments {}. Do not supply a completion summary as the answer unless the task explicitly requests it.
+If the task cannot be completed using the available applications and APIs, the task may be marked as failed.

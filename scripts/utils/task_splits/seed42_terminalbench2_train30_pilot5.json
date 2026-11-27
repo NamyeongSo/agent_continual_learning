@@ -1,0 +1,88 @@
+{
+  "schema_version": 2,
+  "policy": "five selected Terminal-Bench 2.0 train IDs; val and test retain the full 30/30/29 split",
+  "seed": 42,
+  "source_manifest": "seed42_train_val_test.json",
+  "benchmarks": {
+    "terminalbench2": {
+      "benchmark_kwargs": {
+        "subset": "2.0"
+      },
+      "split_counts": {
+        "train": 5,
+        "val": 30,
+        "test": 29
+      },
+      "train": [
+        "fix-git",
+        "filter-js-from-html",
+        "sqlite-db-truncate",
+        "openssl-selfsigned-cert",
+        "regex-log"
+      ],
+      "val": [
+        "mcmc-sampling-stan",
+        "torch-tensor-parallelism",
+        "feal-linear-cryptanalysis",
+        "pypi-server",
+        "kv-store-grpc",
+        "video-processing",
+        "cobol-modernization",
+        "git-multibranch",
+        "largest-eigenval",
+        "circuit-fibsqrt",
+        "sam-cell-seg",
+        "make-doom-for-mips",
+        "constraints-scheduling",
+        "large-scale-text-editing",
+        "adaptive-rejection-sampler",
+        "rstan-to-pystan",
+        "sqlite-with-gcov",
+        "pytorch-model-cli",
+        "prove-plus-comm",
+        "distribution-search",
+        "break-filter-js-from-html",
+        "build-pmars",
+        "password-recovery",
+        "build-pov-ray",
+        "bn-fit-modify",
+        "dna-assembly",
+        "reshard-c4-data",
+        "nginx-request-logging",
+        "custom-memory-heap-crash",
+        "db-wal-recovery"
+      ],
+      "test": [
+        "dna-insert",
+        "git-leak-recovery",
+        "build-cython-ext",
+        "write-compressor",
+        "path-tracing-reverse",
+        "vulnerable-secret",
+        "caffe-cifar-10",
+        "make-mips-interpreter",
+        "polyglot-c-py",
+        "schemelike-metacircular-eval",
+        "log-summary-date-ranges",
+        "llm-inference-batching-scheduler",
+        "compile-compcert",
+        "cancel-async-tasks",
+        "model-extraction-relu-logits",
+        "multi-source-data-merger",
+        "install-windows-3.11",
+        "polyglot-rust-c",
+        "winning-avg-corewars",
+        "modernize-scientific-stack",
+        "protein-assembly",
+        "qemu-startup",
+        "query-optimize",
+        "train-fasttext",
+        "raman-fitting",
+        "sanitize-git-repo",
+        "extract-moves-from-video",
+        "count-dataset-tokens",
+        "hf-model-inference"
+      ]
+    }
+  }
+}

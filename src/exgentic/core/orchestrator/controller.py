@@ -77,7 +77,7 @@ class LimitController(Controller):
             state.actions += action_count
 
     def on_step_success(self, session, observation) -> None:
-        if observation is None:
+        if observation is None or session.done():
             return
         session_id = session.session_id
         with self._lock:

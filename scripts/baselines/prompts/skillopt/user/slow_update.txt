@@ -1,0 +1,13 @@
+## Previous Epoch's Skill
+{prev_skill}
+
+## Current Epoch's Skill
+{skill_content}
+
+## Previous Slow Update Guidance
+The following guidance was active during the current epoch. Reflect on its effectiveness before writing the new version.
+
+{prev_guidance_section}
+
+## Longitudinal Comparison (same 20 tasks, two skill versions)
+{comparison_text}

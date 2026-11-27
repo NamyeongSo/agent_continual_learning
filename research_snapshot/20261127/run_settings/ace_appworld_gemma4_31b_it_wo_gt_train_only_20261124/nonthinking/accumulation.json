@@ -1,0 +1,59 @@
+{
+  "experiment": "ace_reflection_accumulation",
+  "model": "openai/google/gemma-4-31B-it",
+  "model_revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+  "base_url": "http://127.0.0.1:8006/v1",
+  "gpu_physical_id": 0,
+  "model_settings": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "max_tokens": null,
+    "timeout": 600,
+    "num_retries": 1,
+    "extra_body": {
+      "top_k": 64,
+      "chat_template_kwargs": {
+        "enable_thinking": false,
+        "preserve_thinking": false
+      }
+    }
+  },
+  "actor_limits": {
+    "input_tokens_per_turn": 100000,
+    "output_tokens_per_turn": null,
+    "max_turns": 40,
+    "policy_version": "actor-turn-v3-output-unlimited-appworld-turncap-pct-v1"
+  },
+  "turn_limit_scoring": "official_pct_at_limit",
+  "appworld_policy_sha256": "082147d2215b74ce52131e6ef30baa342aeaf4099e2e475f0bbb97fed9fe195d",
+  "actor_context": "shared-empty-v1",
+  "playbook_edit_mode": "add_only",
+  "primary_metric": "individual_test_pass_fraction",
+  "generation_mode": "non_thinking",
+  "history_policy": "Strip ordinary past reasoning; retain tool-call reasoning; official pinned Gemma template",
+  "history_policy_version": "gemma-tool-reasoning-history-v1",
+  "arms": [
+    "without_gt"
+  ],
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "evaluation_repeats": 1,
+  "source_candidate_repeats": 3,
+  "evaluation_phases": [
+    "train_final"
+  ],
+  "evaluation_workers": 50,
+  "global_concurrency": 50,
+  "training_context_workers": 6,
+  "selection_score": "exact mean of three official PCT rewards",
+  "tie_break": "uniform random among exact ties",
+  "seed_phase_order": [
+    "curator_training",
+    "train_final"
+  ],
+  "original_protocol_sha256": "d603b2a77cd4f513ff84bda3576e1fd59ab50c31c79e8a0260792318119bc5a5",
+  "source_relative_path": "outputs/ace_appworld_gemma4_31b_it_wo_gt_train_only_20261124/nonthinking/accumulation/protocol.json"
+}

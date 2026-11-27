@@ -9,7 +9,7 @@
 # evaluate(RunConfig(benchmark="appworld", agent="tool_calling", subset="test_normal", num_tasks=3,
 #   model="gpt-4o"))
 ## Direct class usage (this script):
-# AppWorldBenchmark + LiteLLMToolCallingAgent
+# AppWorldBenchmark + LiteLLMToolCallingAgent (interactive Python code generation)
 
 from exgentic import AppWorldBenchmark, LiteLLMToolCallingAgent, evaluate
 

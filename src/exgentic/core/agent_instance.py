@@ -74,8 +74,14 @@ class AgentInstance(ABC):
         large payloads (e.g. dozens of ActionTypes) are never serialized
         as CLI arguments.
         """
+        from .experiment_limits import LIMITS_CONTEXT_KEY, ActorTurnBudget
+
         self.task = task
-        self.context = context or {}
+        self.context = dict(context or {})
+        policy = self.context.pop(LIMITS_CONTEXT_KEY, None)
+        self._actor_turn_budget = (
+            ActorTurnBudget(policy, prefix_turns=policy.get("prefix_turns", 0)) if policy else None
+        )
         self.actions = actions
 
     def receive_training_feedback(self, feedback: dict[str, Any]) -> None:

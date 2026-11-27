@@ -1,0 +1,7 @@
+{optional_optimizer_meta_skill_context}## Current Skill
+{skill_content}
+
+## Edits Pool ({edit_count} edits, budget={max_edits})
+{indexed_edit_descriptions}
+
+Select the {max_edits} most important edits. Return their 0-based indices in priority order.

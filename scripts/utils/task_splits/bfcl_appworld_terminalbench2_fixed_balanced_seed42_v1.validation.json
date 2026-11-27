@@ -1,0 +1,181 @@
+{
+  "passed": true,
+  "shared_for_experiment_seeds": [
+    42,
+    43,
+    44
+  ],
+  "benchmarks": {
+    "bfcl": {
+      "split_counts": {
+        "train": 50,
+        "val": 50,
+        "test": 50
+      },
+      "selected_tasks": 150,
+      "unused_tasks": 50,
+      "task_id_overlap": false,
+      "membership_sha256": {
+        "train": "9a9aebc0e25363e7728b3c7218877adcb933265ed7b91a40da4ee9265cad4a43",
+        "val": "eec2999f93d3428db10eed8fef575631c35889a28ebe0a838a349a7443771018",
+        "test": "513b6a350d8dca1922b97e41686ff1a3d7c596011bd7dd550ff0738f50ee955e"
+      },
+      "ordered_ids_sha256": {
+        "train": "fca27302429344f019cbfde33881972bd7cd04a48feca50577883d2951d80736",
+        "val": "1078271bb7c5cc01c17bba6c72ef2501b89795902bde374bc3bbe01e8709b302",
+        "test": "dde8d3322410afce048cdb0154928e143b29ba5facf4df63fe361acfd5c5c326"
+      }
+    },
+    "appworld": {
+      "split_counts": {
+        "train": 50,
+        "val": 50,
+        "test": 50
+      },
+      "selected_tasks": 150,
+      "unused_tasks": 267,
+      "task_id_overlap": false,
+      "membership_sha256": {
+        "train": "c1525d5eded6513945980f943ed1207eab8ac3e9d1cab7f81e6b39a3652c3e2c",
+        "val": "611d6736d83a90c984c06b64c5bef7ae93a281097254efee2664e1ae304379b4",
+        "test": "a9beaab3fdac738f83528ceddc98dc7480c7be597c49b49caf9348718ed10415"
+      },
+      "ordered_ids_sha256": {
+        "train": "47c73c9e49d0fc4b595b492d446b8d6837c9f4ae140d23943c953da5b5a34450",
+        "val": "e63f704c2feb3ce10396bdb84b31f4ba8939fc3bee8d7f62ee64ffbf20cc06bb",
+        "test": "fb791c10edafe36e8da415455e2f19242da22d3b7444bdad5b5efc3ba96e0e7e"
+      },
+      "scenarios_per_split": 50,
+      "difficulty_counts": {
+        "1": 9,
+        "2": 18,
+        "3": 23
+      },
+      "variants_by_split": {
+        "train": {
+          "1": 17,
+          "2": 16,
+          "3": 17
+        },
+        "val": {
+          "1": 17,
+          "2": 17,
+          "3": 16
+        },
+        "test": {
+          "1": 16,
+          "2": 17,
+          "3": 17
+        }
+      }
+    },
+    "terminalbench2": {
+      "split_counts": {
+        "train": 30,
+        "val": 30,
+        "test": 29
+      },
+      "selected_tasks": 89,
+      "unused_tasks": 0,
+      "task_id_overlap": false,
+      "membership_sha256": {
+        "train": "15236e37ccb4df0bc4a851b2ea8a0dd8a8e66edb764cb1b7e6ba72ebe241f086",
+        "val": "212f85348708a38f66480cbe8d5ab5a47587b802e23b7d2ab61ea6a72796e9ca",
+        "test": "d236deba7310e0c66b122f4922236dcae0043b561c6192fc4df8cbd72b34a9a4"
+      },
+      "ordered_ids_sha256": {
+        "train": "b6546b2dc665724ad135e0aef471a6e7845edd8b846e1a8bb7db1ec5a8c877d2",
+        "val": "40dda74eab1a09500956222ef76ac843cc060f28d03886707056a16608c3d2ca",
+        "test": "4500f69afb3c0a3b837b20be301df60401ddc3357e9ff516fbcfdb2cc9efc9c9"
+      },
+      "category_counts": {
+        "data-processing": {
+          "train": 2,
+          "val": 1,
+          "test": 1
+        },
+        "data-querying": {
+          "train": 1,
+          "val": 0,
+          "test": 0
+        },
+        "data-science": {
+          "train": 2,
+          "val": 3,
+          "test": 3
+        },
+        "debugging": {
+          "train": 1,
+          "val": 2,
+          "test": 2
+        },
+        "file-operations": {
+          "train": 2,
+          "val": 1,
+          "test": 2
+        },
+        "games": {
+          "train": 1,
+          "val": 0,
+          "test": 0
+        },
+        "machine-learning": {
+          "train": 1,
+          "val": 1,
+          "test": 1
+        },
+        "mathematics": {
+          "train": 1,
+          "val": 1,
+          "test": 2
+        },
+        "model-training": {
+          "train": 1,
+          "val": 1,
+          "test": 2
+        },
+        "optimization": {
+          "train": 0,
+          "val": 0,
+          "test": 1
+        },
+        "personal-assistant": {
+          "train": 0,
+          "val": 1,
+          "test": 0
+        },
+        "scientific-computing": {
+          "train": 3,
+          "val": 3,
+          "test": 2
+        },
+        "security": {
+          "train": 3,
+          "val": 3,
+          "test": 2
+        },
+        "software-engineering": {
+          "train": 9,
+          "val": 9,
+          "test": 8
+        },
+        "system-administration": {
+          "train": 3,
+          "val": 3,
+          "test": 3
+        },
+        "video-processing": {
+          "train": 0,
+          "val": 1,
+          "test": 0
+        }
+      },
+      "represented_categories": {
+        "train": 13,
+        "val": 13,
+        "test": 12
+      }
+    }
+  },
+  "manifest_sha256": "407d4ca24ba09e84c9380ce665e1868c3bf08856721c38fbdd567333abea75eb"
+}

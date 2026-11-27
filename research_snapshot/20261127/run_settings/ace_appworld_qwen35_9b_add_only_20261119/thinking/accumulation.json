@@ -1,0 +1,55 @@
+{
+  "experiment": "ace_reflection_accumulation",
+  "model": "openai/Qwen/Qwen3.5-9B",
+  "base_url": "http://127.0.0.1:8006/v1",
+  "gpu_physical_id": 1,
+  "model_settings": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 1.5,
+    "max_tokens": null,
+    "timeout": 600,
+    "num_retries": 1,
+    "extra_body": {
+      "top_k": 20,
+      "min_p": 0.0,
+      "repetition_penalty": 1.0,
+      "chat_template_kwargs": {
+        "enable_thinking": true,
+        "preserve_thinking": true
+      }
+    }
+  },
+  "actor_limits": {
+    "input_tokens_per_turn": 100000,
+    "output_tokens_per_turn": null,
+    "max_turns": 40,
+    "policy_version": "actor-turn-v3-output-unlimited-appworld-turncap-pct-v1"
+  },
+  "turn_limit_scoring": "official_pct_at_limit",
+  "appworld_policy_sha256": "082147d2215b74ce52131e6ef30baa342aeaf4099e2e475f0bbb97fed9fe195d",
+  "actor_context": "shared-empty-v1",
+  "playbook_edit_mode": "add_only",
+  "primary_metric": "individual_test_pass_fraction",
+  "generation_mode": "thinking",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "evaluation_repeats": 1,
+  "source_candidate_repeats": 3,
+  "evaluation_workers": 100,
+  "global_concurrency": 100,
+  "training_context_workers": 6,
+  "selection_score": "exact mean of three official PCT rewards",
+  "tie_break": "uniform random among exact ties",
+  "seed_phase_order": [
+    "curator_training",
+    "train_final",
+    "bwt_checkpoint",
+    "val"
+  ],
+  "original_protocol_sha256": "efc65b0b813a90505453a9afbe0874411577e2166f870a8077439972306f8285",
+  "source_relative_path": "outputs/ace_appworld_qwen35_9b_add_only_20261119/thinking/accumulation/protocol.json"
+}

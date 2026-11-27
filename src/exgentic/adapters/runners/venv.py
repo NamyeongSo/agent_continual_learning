@@ -20,8 +20,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, BinaryIO
+
+import httpx
 
 from ._utils import (
     find_free_port,
@@ -30,11 +33,29 @@ from ._utils import (
     prepare_subprocess_env,
     serialize_kwargs,
 )
-from .service import HTTPTransport, _wait_for_health
+from .service import HTTPTransport
 from .transport import ObjectProxy
 
 _HEALTH_TIMEOUT = 30.0
 _TRANSPORT_TIMEOUT = 1800.0
+_PORT_START_ATTEMPTS = 5
+
+
+def _wait_for_child_health(url: str, process: subprocess.Popen, timeout: float) -> None:
+    """Accept only the service started by this runner, never another port owner."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError(f"Venv service exited before becoming healthy (exit={process.returncode})")
+        try:
+            response = httpx.get(f"{url}/health", timeout=2.0)
+            if response.status_code == 200 and response.json().get("pid") == process.pid:
+                if process.poll() is None:
+                    return
+        except (httpx.HTTPError, ValueError):
+            pass
+        time.sleep(0.1)
+    raise TimeoutError(f"Venv service did not become healthy within {timeout}s")
 
 
 def _uv(*args: str, check: bool = True, **kwargs: Any) -> subprocess.CompletedProcess:
@@ -60,6 +81,7 @@ class VenvRunner:
     port:             Host port to bind (auto-selected if None).
     dependencies:     Extra pip packages to install in the venv at runtime.
     health_timeout:   Seconds to wait for the health endpoint.
+    transport_timeout: Seconds to wait for an RPC response; None disables the RPC time limit.
     """
 
     def __init__(
@@ -71,6 +93,7 @@ class VenvRunner:
         port: int | None = None,
         dependencies: list[str] | None = None,
         health_timeout: float | None = None,
+        transport_timeout: float | None = _TRANSPORT_TIMEOUT,
         **kwargs: Any,
     ) -> None:
         if args:
@@ -85,6 +108,9 @@ class VenvRunner:
         self._port = port or find_free_port()
         self._dependencies = dependencies or []
         self._health_timeout = health_timeout or _HEALTH_TIMEOUT
+        self._transport_timeout = transport_timeout
+        if self._transport_timeout is not None and self._transport_timeout <= 0:
+            raise ValueError("transport_timeout must be positive")
         self._process: subprocess.Popen | None = None
         self._service_output: BinaryIO | None = None
 
@@ -157,6 +183,12 @@ class VenvRunner:
         system_path = os.environ.get("PATH", "")
         env["PATH"] = venv_bin + os.pathsep + system_path
         inject_exgentic_env(env)
+        source_root = Path(__file__).resolve().parents[3]
+        if (source_root.parent / "pyproject.toml").is_file():
+            # Reuse isolated dependencies, but load the active checkout's
+            # framework and budget guards rather than an old installed copy.
+            inherited = env.get("PYTHONPATH")
+            env["PYTHONPATH"] = str(source_root) + (os.pathsep + inherited if inherited else "")
 
         exgentic_bin = self._get_venv_dir() / "bin" / "exgentic"
         cmd = [
@@ -174,37 +206,43 @@ class VenvRunner:
 
         # AppWorld can emit more than a pipe buffer of import warnings before
         # serving /health. A file keeps the child from blocking on stderr.
-        self._service_output = tempfile.TemporaryFile()
-        try:
-            self._process = subprocess.Popen(
-                cmd,
-                env=env,
-                stdout=self._service_output,
-                stderr=subprocess.STDOUT,
-            )
-        except Exception:
-            self._service_output.close()
-            self._service_output = None
-            raise
-        atexit.register(self._stop_process)
+        # Port discovery and child bind are not atomic: retry with a fresh port
+        # if another process wins that race.
+        for attempt in range(_PORT_START_ATTEMPTS):
+            cmd[-1] = str(self._port)
+            self._service_output = tempfile.TemporaryFile()
+            try:
+                self._process = subprocess.Popen(
+                    cmd,
+                    env=env,
+                    stdout=self._service_output,
+                    stderr=subprocess.STDOUT,
+                )
+            except Exception:
+                self._stop_process()
+                raise
+            atexit.register(self._stop_process)
+            url = f"http://127.0.0.1:{self._port}"
+            try:
+                _wait_for_child_health(url, self._process, self._health_timeout)
+                break
+            except (TimeoutError, RuntimeError) as exc:
+                output = b""
+                if self._service_output is not None:
+                    self._service_output.flush()
+                    self._service_output.seek(0, os.SEEK_END)
+                    self._service_output.seek(max(0, self._service_output.tell() - 65536))
+                    output = self._service_output.read()
+                self._stop_process()
+                if b"address already in use" in output.lower() and attempt + 1 < _PORT_START_ATTEMPTS:
+                    self._port = find_free_port()
+                    continue
+                raise RuntimeError(
+                    f"Venv service failed to start on port {self._port}: {exc}\n"
+                    f"service output:\n{output.decode(errors='replace')}"
+                ) from exc
 
-        url = f"http://127.0.0.1:{self._port}"
-        try:
-            _wait_for_health(url, timeout=self._health_timeout)
-        except TimeoutError:
-            output = b""
-            if self._service_output is not None:
-                self._service_output.flush()
-                self._service_output.seek(0, os.SEEK_END)
-                self._service_output.seek(max(0, self._service_output.tell() - 65536))
-                output = self._service_output.read()
-            self._stop_process()
-            raise TimeoutError(
-                f"Venv service did not become healthy within {self._health_timeout}s.\n"
-                f"service output:\n{output.decode(errors='replace')}"
-            ) from None
-
-        transport = HTTPTransport(url, timeout=_TRANSPORT_TIMEOUT)
+        transport = HTTPTransport(url, timeout=self._transport_timeout)
         proxy = ObjectProxy(transport)
         object.__setattr__(proxy, "close", make_close(transport, self._stop_process))
         return proxy
@@ -225,3 +263,6 @@ class VenvRunner:
         self._service_output = None
         if output is not None:
             output.close()
+        from ._utils import release_port
+
+        release_port(self._port)

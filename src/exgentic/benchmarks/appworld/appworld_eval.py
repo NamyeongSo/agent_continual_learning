@@ -16,12 +16,15 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+import time
 from pathlib import Path
 from shutil import copytree
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pydantic import (
     BaseModel,
+    Field,
+    ValidationError,
     create_model,
 )
 
@@ -42,10 +45,40 @@ from ...core.types import (
 )
 from ...utils.paths import get_run_id, get_run_paths
 from ...utils.settings import get_settings
-from .appworld_benchmark import AppWorldObservation
+from .appworld_benchmark import AppWorldObservation, make_session_kwargs
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+
+class ExecutePythonArguments(BaseModel):
+    """One Python code block for AppWorld's persistent interactive shell."""
+
+    code: str = Field(description="Python code to execute in the persistent AppWorld shell.")
+
+
+APPWORLD_CODE_INSTRUCTIONS = (
+    "This AppWorld task uses interactive Python code generation. For each step, call execute_python with one Python "
+    "code block. The code runs in the same persistent AppWorld shell, so variables from earlier blocks remain "
+    "available. Use the provided apis object to call documented app APIs (for example, "
+    "apis.gmail.search_emails(...)). Discover apps with print(apis.api_docs.show_app_descriptions()), list an app's "
+    "APIs with print(apis.api_docs.show_api_descriptions(app_name='gmail')), and inspect parameters with "
+    "print(apis.api_docs.show_api_doc(app_name='gmail', api_name='search_emails')). Print useful results so "
+    "they are returned as the observation. You may use Python control flow to process results and make several API "
+    "calls in one code block. When the requested task is complete, call apis.supervisor.complete_task(...) from the "
+    "shell, providing answer only when the task requests a final answer. Do not call the APIs as separate model "
+    "function tools; execute Python code through execute_python."
+)
+
+
+def _startup_clock(_clock=time.monotonic) -> float:
+    """Keep a real duration clock when AppWorld freezes the task's wall clock.
+
+    The default argument retains the original callable outside freezegun's
+    module-attribute replacement, including monotonic time replacement.
+    """
+    return _clock()
+
 
 APPWORLD_TOTAL_TASKS = {
     "train": 90,
@@ -61,9 +94,9 @@ if TYPE_CHECKING:
 class AppWorldSession(Session):
     """Session that hosts AppWorld directly (no separate WorldProcess).
 
-    Tools are derived from the AppWorld task API docs and mapped to ActionTypes.
-    Each step calls AppWorld.requester.request(app, api, **args) and wraps the
-    result as observations, surfacing API errors as structured payloads.
+    The default interaction mode executes generated Python in AppWorld's
+    persistent shell. The legacy function-calling mode maps API docs to
+    individual ActionTypes and calls AppWorld.requester directly.
     """
 
     CACHE_DIR: ClassVar[str] = "./appworld_disk_cache"
@@ -78,12 +111,20 @@ class AppWorldSession(Session):
         use_cache: bool = True,
         tool_name_separator: str = ".",
         max_interactions: int | None = None,
+        policy_override: str | None = None,
+        interaction_mode: Literal["code_generation", "function_calling"] = "code_generation",
     ) -> None:
+        constructor_started = _startup_clock()
+        self._startup_timings: dict[str, float] = {}
         if session_id is not None:
             self._session_id = session_id
         self._task_spec = task_spec or {}
         self._env_kwargs = env_kwargs or {}
         self._tool_name_separator = tool_name_separator
+        self._policy_override = policy_override
+        if interaction_mode not in ("code_generation", "function_calling"):
+            raise ValueError(f"Unsupported AppWorld interaction mode: {interaction_mode}")
+        self._interaction_mode = interaction_mode
         self._max_interactions = max_interactions
         self._action_count = 0
         self._registry = ActionsHandler(
@@ -96,6 +137,7 @@ class AppWorldSession(Session):
         self._step_count: int = 0
         self._done: bool = False
         self._world_closed: bool = False
+        self._world_state_saved: bool = False
         self._cached_score: SessionScore | None = None
 
         # Resolve task_id
@@ -107,12 +149,15 @@ class AppWorldSession(Session):
         self._task_id = str(task_id)
 
         # Construct AppWorld in-process (lazy import to defer side effects)
+        import_started = _startup_clock()
         from appworld import update_root  # type: ignore
         from appworld.common.constants import DEFAULT_EXPERIMENT_NAME  # type: ignore
         from appworld.common.path_store import path_store  # type: ignore
         from appworld.environment import AppWorld  # type: ignore
+        self._startup_timings["appworld_import_seconds"] = _startup_clock() - import_started
 
         # Point appworld at the correct data directory before loading the task.
+        root_started = _startup_clock()
         cache = Path(settings.cache_dir).expanduser()
         update_root(str(cache / "appworld"))
 
@@ -121,15 +166,24 @@ class AppWorldSession(Session):
         # threads, but appworld's @lru_cache'd connections default to
         # check_same_thread=True, causing ProgrammingError.
         self._patch_appworld_sqlite()
+        self._startup_timings["root_and_sqlite_setup_seconds"] = _startup_clock() - root_started
 
+        world_started = _startup_clock()
         self._world: AppWorld = AppWorld(task_id=self._task_id, **self._env_kwargs)
+        self._startup_timings["world_creation_seconds"] = _startup_clock() - world_started
         self._experiment_name: str = self._world.experiment_name or DEFAULT_EXPERIMENT_NAME
         self._task_output_dir: Path = (
             Path(path_store.experiment_outputs) / self._experiment_name / "tasks" / self._task_id
         )
 
         self.logger.info(f"Task ID: {task_spec}")
+        manifest_started = _startup_clock()
         super().__init__()
+        self._startup_timings["manifest_including_action_types_seconds"] = _startup_clock() - manifest_started
+        self._startup_timings["constructor_seconds"] = _startup_clock() - constructor_started
+        timing_path = self.paths.benchmark_dir / "appworld_startup_timings.json"
+        timing_path.parent.mkdir(parents=True, exist_ok=True)
+        timing_path.write_text(json.dumps(self._startup_timings, indent=2), encoding="utf-8")
 
     @staticmethod
     def _patch_appworld_sqlite() -> None:
@@ -167,11 +221,17 @@ class AppWorldSession(Session):
             "env_kwargs": self._env_kwargs,
             "tool_name_separator": self._tool_name_separator,
             "max_interactions": self._max_interactions,
+            "interaction_mode": self._interaction_mode,
         }
 
     @property
     def world(self) -> AppWorld:
         return self._world
+
+    @property
+    def requires_main_thread(self) -> bool:
+        """AppWorld's interactive shell enforces execution deadlines with signals."""
+        return self._interaction_mode == "code_generation"
 
     @property
     def task(self) -> str:
@@ -184,7 +244,7 @@ class AppWorldSession(Session):
             raise ValueError("AppWorld task is not initialized")
 
         allowed = ", ".join(app for app in self.world.task.allowed_apps if app != "api_docs")
-        return {
+        context = {
             "policy": (
                 "This environment provides a set of applications,"
                 " each exposing a predefined set of APIs that may"
@@ -239,14 +299,41 @@ class AppWorldSession(Session):
             # "allowed_apps": self.world.task.allowed_apps,
             "datetime": self.world.task.datetime.isoformat(),
         }
+        policy = getattr(self, "_policy_override", None)
+        if policy is not None:
+            context["policy"] = policy.replace("{allowed}", allowed)
+        if getattr(self, "_interaction_mode", "function_calling") == "code_generation":
+            context["interaction_mode"] = "code_generation"
+            context["code_execution_instructions"] = APPWORLD_CODE_INSTRUCTIONS
+        return context
 
     @property
     def actions(self) -> list[ActionType]:
         if not self._registry.actions:
+            if self._interaction_mode == "code_generation":
+                code_action = create_model(
+                    "AppWorldExecutePythonAction",
+                    __base__=SingleAction,
+                    name=(Literal["execute_python"], "execute_python"),
+                    arguments=(ExecutePythonArguments, ...),
+                )
+                self._registry.add_action(
+                    name="execute_python",
+                    description=(
+                        "Execute one Python code block in AppWorld's persistent interactive shell. Use the `apis` "
+                        "object for app APIs and `apis.api_docs` to inspect their documentation."
+                    ),
+                    action_cls=code_action,
+                    handler=self.apply_action,
+                )
+                return self._registry.actions
+
+            build_started = _startup_clock()
             # Build ActionTypes from AppWorld function_calling docs to leverage enriched auth parameters
             from ...adapters.schemas.json_schema import make_args_model_from_json_schema
 
             tools_specs = self.world.task.api_docs.function_calling()
+            docs_finished = _startup_clock()
             for tool in tools_specs:
                 function = tool["function"]
                 raw_name = function["name"]
@@ -286,6 +373,8 @@ class AppWorldSession(Session):
                         action_cls=act,
                         handler=self.apply_action,
                     )
+            self._startup_timings["tool_docs_seconds"] = docs_finished - build_started
+            self._startup_timings["action_types_seconds"] = _startup_clock() - docs_finished
         return self._registry.actions
 
     @property
@@ -310,6 +399,22 @@ class AppWorldSession(Session):
         return False
 
     def apply_action(self, action: SingleAction):
+        if action.name == "execute_python":
+            arguments = action.arguments
+            if isinstance(arguments, BaseModel):
+                arguments = arguments.model_dump()
+            try:
+                code = ExecutePythonArguments.model_validate(arguments).code
+            except ValidationError as exc:
+                self._step_count += 1
+                return AppWorldObservation(invoking_actions=[action], result=f"Invalid Python code argument: {exc}")
+            try:
+                out = self.world.execute(code)
+            finally:
+                self._step_count += 1
+            self.logger.info("Executed AppWorld Python code block (%d chars)", len(code))
+            return AppWorldObservation(invoking_actions=[action], result=out)
+
         if self._is_message_action(action):
             self._step_count += 1
             return AppWorldObservation(
@@ -332,7 +437,9 @@ class AppWorldSession(Session):
 
         arguments = action.arguments
         if isinstance(arguments, BaseModel):
-            arguments = arguments.model_dump()
+            arguments = arguments.model_dump(exclude_none=True)
+        elif isinstance(arguments, dict):
+            arguments = {name: value for name, value in arguments.items() if value is not None}
 
         self.logger.info(f"App: {app_name}, Function: {api_name}, Arguments: {arguments}")
 
@@ -366,8 +473,19 @@ class AppWorldSession(Session):
         if self._done:
             return None
 
+        action_list = action.to_action_list()
+        if self._interaction_mode == "code_generation" and (
+            len(action_list) != 1 or action_list[0].name != "execute_python"
+        ):
+            self._action_count += len(action_list)
+            self._step_count += 1
+            return AppWorldObservation(
+                invoking_actions=action_list,
+                result="Code-generation mode accepts exactly one execute_python code block per agent turn.",
+            )
+
         if self._max_interactions is not None:
-            incoming = len(action.to_action_list())
+            incoming = len(action_list)
             if self._action_count + incoming > self._max_interactions:
                 self.logger.warning(
                     "AppWorld local max_interactions reached (%s/%s); terminating session",
@@ -376,11 +494,17 @@ class AppWorldSession(Session):
                 )
                 return None
 
-        observation = self._registry.execute(action)
+        # AppWorld returns Python errors as output. An exception raised by
+        # execute itself is an infrastructure error and must reach the runner.
+        observation = (
+            self.apply_action(action_list[0])
+            if self._interaction_mode == "code_generation"
+            else self._registry.execute(action)
+        )
         if observation is None:
             return None
         if self._max_interactions is not None:
-            self._action_count += len(action.to_action_list())
+            self._action_count += len(action_list)
         if self._max_interactions_error(observation):
             self.logger.warning(
                 "AppWorld max_interactions reached (%s/%s); terminating session",
@@ -393,10 +517,22 @@ class AppWorldSession(Session):
     def done(self) -> bool:
         return self.world.task_completed()
 
+    def _save_world_state(self) -> None:
+        """Persist live DB changes before the evaluator loads model hashes from disk."""
+        if self._world_state_saved:
+            return
+        self._done = self.world.task_completed()
+        self.world.save()
+        self._world_state_saved = True
+
     def score(self) -> SessionScore:
+        if failure := getattr(self, "_experiment_failure_score", None):
+            return failure
         if self._cached_score is not None:
             return self._cached_score
-        # World was already saved and closed in close(); compute the actual evaluation score now.
+        # The orchestrator scores before close(). AppWorld's evaluator reloads
+        # model hashes from disk, so save the final state before it touches the DB.
+        self._save_world_state()
         from appworld.apps.lib.models.db import CachedDBHandler
         from appworld.evaluator import evaluate_task
 
@@ -416,11 +552,6 @@ class AppWorldSession(Session):
             test_tracker.success,
         )
 
-        # Check task completion before evaluate_task potentially closes DB.
-        try:
-            finished = self.world.task_completed()
-        except Exception:
-            finished = bool(self._done)
         # Reset cached DB handler for this task so later aggregate evaluation can run.
         CachedDBHandler.reset(self._task_id)
         # Surface benchmark evaluation details for downstream analysis.
@@ -451,7 +582,7 @@ class AppWorldSession(Session):
         sc = SessionScore(
             score=score_value,
             success=test_tracker.success,
-            is_finished=finished,
+            is_finished=self._done,
             session_metrics=session_metrics,
             session_metadata=session_metadata,
         )
@@ -460,6 +591,45 @@ class AppWorldSession(Session):
         # already been reset by the first evaluation).
         self._cached_score = sc
         return sc
+
+    def fail_experiment_budget(self, details: dict[str, Any], policy: dict[str, Any]) -> SessionScore:
+        if details.get("reason") == "max_turns" and policy.get("turn_limit_scoring") == "official_pct_at_limit":
+            # This cohort's explicit exception retains the official partial score
+            # of the final state. Other budget reasons still terminate at zero.
+            score = self.score()
+            tracker = score.session_metadata["test_tracker"]
+            total = tracker.get("num_tests", 0)
+            passed, failed = len(tracker.get("passes", [])), len(tracker.get("failures", []))
+            if total <= 0 or passed + failed != total:
+                raise ValueError("Incomplete official test outcomes at the turn limit")
+            score.score = passed / total
+            score.session_metrics["pass_percentage"] = 100 * score.score
+            score.session_metadata.update(
+                turn_limit_reached=True, turn_cap_details=details,
+                turn_limit_scoring="official_pct_at_limit", experiment_limits=policy,
+            )
+            self._cached_score = score
+            path = self.paths.benchmark_dir / self.SCORES_FILE_NAME
+            payload = json.loads(path.read_text())
+            payload.update(turn_limit_reached=True, turn_cap_details=details,
+                           turn_limit_scoring="official_pct_at_limit", pass_percentage=100 * score.score)
+            path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            self.save_results(score.model_dump())
+            return score
+        score = super().fail_experiment_budget(details, policy)
+        # This is an explicit experiment-policy requirement, not an official
+        # AppWorld assertion. Including it keeps failed tasks/scenarios in Metric.
+        tracker = {
+            "success": False, "difficulty": None, "num_tests": 1, "passes": [],
+            "failures": [{"requirement": "Stay within the shared experiment actor budget",
+                          "label": "no_op_fail", "trace": json.dumps(details)}],
+        }
+        score.session_metadata["test_tracker"] = tracker
+        path = self.paths.benchmark_dir / self.SCORES_FILE_NAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"test_tracker": tracker, "experiment_budget_failure": details}), encoding="utf-8")
+        self.save_results(score.model_dump())
+        return score
 
     def close(self):
         # Save AppWorld task state and mirror logs
@@ -471,16 +641,14 @@ class AppWorldSession(Session):
         )
         if self._world_closed:
             self.logger.warning("AppWorld session close called more than once.")
+            return
         try:
-            self.world.save()
+            # score() may already have reset the live DB. Keep the snapshot that
+            # was saved before evaluation instead of overwriting it during close.
+            self._save_world_state()
         except Exception:
             self.logger.exception("AppWorld world.save failed")
             raise
-        try:
-            self._done = self.world.task_completed()
-        except Exception:
-            # DB may already be closed by score()/evaluate_task; safe to skip.
-            self.logger.debug("AppWorld task_completed check skipped in close (DB likely closed)")
         logs_src = self._task_output_dir / "logs"
         if logs_src.exists():
             dest = self.paths.benchmark_dir / "logs"
@@ -551,7 +719,13 @@ class AppWorldEvaluator(Evaluator):
         max_interactions: int = 200,
         tool_name_separator: str = "__",
         use_cache: bool = True,
+        policy_override: str | None = None,
+        interaction_mode: Literal["code_generation", "function_calling"] = "code_generation",
     ) -> None:
+        if interaction_mode not in ("code_generation", "function_calling"):
+            raise ValueError(f"Unsupported AppWorld interaction mode: {interaction_mode}")
+        self._policy_override = policy_override
+        self._interaction_mode = interaction_mode
         self._subset = subset
         self._env_kwargs = env_kwargs or {}
         self._max_interactions = max_interactions
@@ -579,23 +753,12 @@ class AppWorldEvaluator(Evaluator):
         self._ensure_appworld_root()
         if not self._experiment_name:
             self._experiment_name = get_run_id()
-        task_id = index.task_id
-        session_id = index.session_id
-        experiment_name = f"{self._experiment_name}__{session_id}"
-        spec = {"task_id": task_id}
-
-        return {
-            "session_id": session_id,
-            "task_spec": spec,
-            "env_kwargs": {
-                **self._env_kwargs,
-                "max_interactions": self._max_interactions,
-                "experiment_name": experiment_name,
-            },
-            "use_cache": self._use_cache,
-            "tool_name_separator": self._tool_name_separator,
-            "max_interactions": self._max_interactions,
-        }
+        return make_session_kwargs(
+            index, env_kwargs=self._env_kwargs, max_interactions=self._max_interactions,
+            tool_name_separator=self._tool_name_separator, use_cache=self._use_cache,
+            experiment_name=self._experiment_name, policy_override=self._policy_override,
+            interaction_mode=self._interaction_mode,
+        )
 
     def _stage_task_outputs(
         self,

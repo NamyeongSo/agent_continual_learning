@@ -8,7 +8,6 @@ import time
 from typing import Any, Union
 
 import litellm
-litellm.cache = None  # Disable LiteLLM
 from litellm import (
     ChatCompletionAssistantMessage,
     ChatCompletionDeveloperMessage,
@@ -18,6 +17,7 @@ from litellm import (
 
 from ...core.agent_instance import AgentInstance
 from ...core.context import get_context
+from ...core.experiment_limits import ExperimentBudgetExceededError, actor_completion
 from ...core.types import (
     Action,
     ActionType,
@@ -34,11 +34,20 @@ from ...utils.cost import LiteLLMCostReport
 from ...utils.settings import get_settings
 from .utils import ToolCall, ToolsActionsRegistry
 
+litellm.cache = None  # Disable LiteLLM
 settings = get_settings()
 
 
 class NonRetryableCompletionError(ValueError):
     """Raised when a completion response should not be retried."""
+
+
+class OutputTruncatedCompletionError(NonRetryableCompletionError):
+    """The provider returned an incomplete response at its output token limit."""
+
+
+class CompletionRetriesExhaustedError(RuntimeError):
+    """An LLM request has already consumed its retry budget."""
 
 
 class LiteLLMToolCallingAgentInstance(AgentInstance):
@@ -267,6 +276,8 @@ class LiteLLMToolCallingAgentInstance(AgentInstance):
                 messages=[dev, history],
                 caching=self._use_cache,
             )
+        except (NonRetryableCompletionError, CompletionRetriesExhaustedError, ExperimentBudgetExceededError):
+            raise
         except Exception as exc:
             self.logger.warning("Tool shortlisting LLM call failed: %s", exc)
             return tools[: self.max_selected_tools]
@@ -382,12 +393,20 @@ class LiteLLMToolCallingAgentInstance(AgentInstance):
         choice = response["choices"][0]
         message = choice["message"]
         finish_reason = choice.get("finish_reason")
+        # Thinking models need their previous reasoning in the next request when
+        # preserved thinking is enabled by the serving chat template.
+        reasoning = {
+            key: value for key in ("reasoning_content", "reasoning")
+            if (value := message.get(key)) is not None
+        }
 
         if finish_reason == "tool_calls":
             tool_calls = self._extract_tool_calls(message)
             self._add_message(
                 ChatCompletionAssistantMessage(
                     role="assistant",
+                    **({"content": message.content} if message.content is not None else {}),
+                    **reasoning,
                     tool_calls=[
                         {
                             "id": tool_call["id"],
@@ -408,6 +427,7 @@ class LiteLLMToolCallingAgentInstance(AgentInstance):
                 ChatCompletionAssistantMessage(
                     role="assistant",
                     content=message.content,
+                    **reasoning,
                 )
             )
 
@@ -417,11 +437,22 @@ class LiteLLMToolCallingAgentInstance(AgentInstance):
     def _completion(self, **kwargs):
         call_kwargs = self.model_settings.model_dump(
             exclude_none=True,
-            exclude={"num_retries", "retry_after", "retry_strategy"},
+            exclude={"num_retries", "retry_after", "retry_strategy", "disable_request_timeout"},
         )
         call_kwargs.update(kwargs)
+        if self.model_settings.disable_request_timeout:
+            import httpx
+
+            # Omitting timeout or passing None selects LiteLLM's 600s default.
+            call_kwargs["timeout"] = httpx.Timeout(None)
         # Use 'metadata' parameter instead of 'litellm_metadata' - LiteLLM passes this to callbacks
         call_kwargs.setdefault("metadata", {})["context"] = get_context()
+        ledger = self.paths.benchmark_dir / "model_call_timing.json" if getattr(self, "_session_id", None) else None
+        if ledger is not None and ledger.is_file():
+            from ...benchmarks.terminalbench2.task_clock import record_model_call
+
+            with record_model_call(ledger):
+                return self._completion_with_retries(call_kwargs)
         return self._completion_with_retries(call_kwargs)
 
     def _completion_with_retries(self, call_kwargs: dict[str, Any]):
@@ -429,10 +460,10 @@ class LiteLLMToolCallingAgentInstance(AgentInstance):
         max_attempts = max(1, num_retries + 1)
         for attempt in range(max_attempts):
             try:
-                response = litellm.completion(max_retries=0, **call_kwargs)
+                response = actor_completion(self, {**call_kwargs, "max_retries": 0})
                 self._raise_if_invalid_completion(response)
                 return response
-            except NonRetryableCompletionError:
+            except (NonRetryableCompletionError, ExperimentBudgetExceededError):
                 raise
             except Exception as exc:
                 if attempt >= num_retries:
@@ -464,7 +495,7 @@ class LiteLLMToolCallingAgentInstance(AgentInstance):
                 "LiteLLM completion truncated (finish_reason=length). Raw response: %s",
                 response,
             )
-            raise NonRetryableCompletionError(
+            raise OutputTruncatedCompletionError(
                 "LiteLLM completion truncated (finish_reason=length). "
                 "To allow truncated responses, configure the agent with "
                 "allow_truncated_messages=True, or increase max_tokens."

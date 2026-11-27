@@ -6,7 +6,6 @@ import logging
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict
 
 from rich.columns import Columns
 from rich.console import Console
@@ -70,7 +69,7 @@ class ConsoleLoggerObserver(Observer, RunRecapMixin):
         self._start_time: datetime | None = None
         self._progress: Progress | None = None
         self._run_task_id: int | None = None
-        self._session_tasks: Dict[str, tuple[int, int | None]] = {}
+        self._session_tasks: dict[str, tuple[int, int | None]] = {}
         self._completed_session_tasks: list[int] = []
         self._run_config = None
 
@@ -337,7 +336,7 @@ class ConsoleLoggerObserver(Observer, RunRecapMixin):
     def _build_config_panel(
         self,
         title: str,
-        overrides: Dict[str, str],
+        overrides: dict[str, str],
         *,
         border_style: str = "magenta",
     ) -> Panel:
@@ -411,6 +410,7 @@ class ConsoleLoggerObserver(Observer, RunRecapMixin):
             _DurationColumn(),
             console=self._console,
             transient=False,
+            auto_refresh=self._console.is_terminal,
         )
         self._progress.start()
         self._run_task_id = self._progress.add_task("Run", total=total if total else None, unit="sessions")
@@ -469,7 +469,7 @@ class ConsoleLoggerObserver(Observer, RunRecapMixin):
         entry = self._session_tasks.pop(session_id, None)
         if entry is None:
             return
-        task_id, total = entry
+        task_id, _total = entry
         steps = self._ledger.get_steps(session_id)
         if steps > 0:
             self._progress.update(task_id, total=steps, completed=steps)

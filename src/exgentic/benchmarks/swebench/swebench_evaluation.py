@@ -2,6 +2,7 @@
 # Copyright (C) 2026, The Exgentic organization and its contributors.
 
 import json
+import hashlib
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -38,6 +39,27 @@ def _pushd(path):
         os.chdir(prev)
 
 
+@contextmanager
+def _docker_ssh_transport():
+    """Use separate SSH client connections for concurrent SWE harness jobs."""
+    if not os.environ.get("DOCKER_HOST", "").startswith("ssh://"):
+        yield
+        return
+    import docker
+
+    original_from_env = docker.from_env
+
+    def from_env(*args, **kwargs):
+        kwargs.setdefault("use_ssh_client", True)
+        return original_from_env(*args, **kwargs)
+
+    docker.from_env = from_env
+    try:
+        yield
+    finally:
+        docker.from_env = original_from_env
+
+
 def run_harness(
     patch: str,
     instance_id: str,
@@ -70,29 +92,39 @@ def run_harness(
         return HarnessResult({}, patch, False, False)
 
     logger.info("EVAL | Running SWE-bench harness evaluation")
-    try:
-        from swebench.harness import run_evaluation
+    from swebench.harness import run_evaluation
 
-        with _pushd(paths.benchmark_dir), capture_stdio_to_session(logger):
-            report_path = run_evaluation.main(
-                dataset_name=subset,
-                split="test",
-                instance_ids=[instance_id],
-                predictions_path=pred_path.name,
-                max_workers=eval_config["max_workers"],
-                run_id="exgentic1",
-                namespace="swebench",
-                force_rebuild=False,
-                cache_level=eval_config["cache_level"],
-                clean=False,
-                open_file_limit=eval_config["open_file_limit"],
-                timeout=eval_config["harness_timeout"],
-                rewrite_reports=False,
-                modal=False,
-            )
-            report = json.loads(Path(report_path).read_text()) if report_path and Path(report_path).is_file() else {}
-        logger.info("EVAL | Harness evaluation completed")
-        return HarnessResult(report, patch, True, True)
-    except Exception as e:
-        logger.exception(f"EVAL | Harness evaluation failed: {e}")
-        return HarnessResult({}, patch, True, True, str(e))
+    base_run_id = "exgentic-" + hashlib.sha256(
+        f"{paths.output_dir.resolve()}:{paths.run_id}:{paths.session_id}".encode()
+    ).hexdigest()[:16]
+    report: dict[str, Any] = {}
+    error = "SWE-bench harness did not complete the requested instance"
+    for attempt in range(1, 3):
+        try:
+            with _pushd(paths.benchmark_dir), capture_stdio_to_session(logger), _docker_ssh_transport():
+                report_path = run_evaluation.main(
+                    dataset_name=subset,
+                    split="test",
+                    instance_ids=[instance_id],
+                    predictions_path=pred_path.name,
+                    max_workers=eval_config["max_workers"],
+                    run_id=f"{base_run_id}-try{attempt}",
+                    namespace="swebench",
+                    force_rebuild=False,
+                    cache_level=eval_config["cache_level"],
+                    clean=False,
+                    open_file_limit=eval_config["open_file_limit"],
+                    timeout=eval_config["harness_timeout"],
+                    rewrite_reports=False,
+                    modal=False,
+                )
+                report = json.loads(Path(report_path).read_text()) if report_path and Path(report_path).is_file() else {}
+            if instance_id in report.get("completed_ids", []):
+                logger.info("EVAL | Harness evaluation completed")
+                return HarnessResult(report, patch, True, True)
+            error = f"SWE-bench harness did not complete {instance_id}; error_ids={report.get('error_ids', [])}"
+            logger.warning("EVAL | Harness attempt %d/2 incomplete: %s", attempt, error)
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+            logger.exception("EVAL | Harness attempt %d/2 failed: %s", attempt, error)
+    return HarnessResult(report, patch, True, True, error)

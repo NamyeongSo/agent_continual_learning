@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import socket
 from pathlib import Path
 from typing import Any
@@ -28,11 +29,50 @@ def find_project_root() -> Path:
     return fallback
 
 
+class _LeasedPort(int):
+    """Keep a cross-process reservation until the owning runner stops."""
+
+    def __new__(cls, value, lease):
+        instance = super().__new__(cls, value)
+        instance.lease = lease
+        return instance
+
+
+def release_port(port: int) -> None:
+    """Release only this allocation's lease; repeated cleanup is harmless."""
+    if isinstance(port, _LeasedPort) and port.lease is not None:
+        lease, port.lease = port.lease, None
+        lease.close()
+
+
 def find_free_port() -> int:
-    """Return an unused TCP port on localhost."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
-        return s.getsockname()[1]
+    """Return a localhost port, reserving configured blocks across processes."""
+    import os
+
+    block_start = os.environ.get("EXGENTIC_PORT_BLOCK_START")
+    if block_start is not None:
+        import fcntl
+
+        start = int(block_start)
+        if not 1024 <= start <= 64535:
+            raise ValueError("EXGENTIC_PORT_BLOCK_START must allow a 1000-port block")
+        directory = Path("/tmp") / f"exgentic-port-leases-{os.getuid()}"
+        directory.mkdir(mode=0o700, exist_ok=True)
+        for port in range(start, start + 1000):
+            lease = (directory / f"{port}.lock").open("a+b")
+            try:
+                fcntl.flock(lease.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.bind(("127.0.0.1", port))
+            except OSError:
+                lease.close()
+                continue
+            return _LeasedPort(port, lease)
+        raise RuntimeError(f"No free port in EXGENTIC_PORT_BLOCK_START={start} block")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("", 0))
+        return sock.getsockname()[1]
+
 
 
 def serialize_kwargs(kwargs: dict[str, Any]) -> tuple[str, str]:

@@ -142,6 +142,12 @@ def _apply_harness_data(score: SessionScore, hd: Any, instance_id: str):
         if hd.harness_report.get("resolved_instances", 0) > 0:
             score.evaluation["resolved"] = True
     score.success = hd.error is None
+    if hd.error is not None:
+        score.session_metadata = {
+            **(score.session_metadata or {}),
+            "error": hd.error,
+            "error_source": "benchmark",
+        }
 
 
 def _build_summary(score: SessionScore, num_actions: int, max_interactions: int) -> dict[str, Any]:

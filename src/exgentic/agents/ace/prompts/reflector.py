@@ -75,3 +75,25 @@ REFLECTOR_PROMPT_TRAINING_TIME = (
         "**Full Playbook:**",
     )
 )
+
+
+# Reference-trajectory ablation of the training-time prompt.
+REFLECTOR_PROMPT_WITH_GT = (
+    REFLECTOR_PROMPT_TRAINING_TIME
+    .replace(
+        "using the reasoning trace and official post-session grading feedback.",
+        "using the reasoning trace, official post-session grading feedback, and a reference trajectory.",
+    )
+    .replace(
+        "- Also note what the model did well",
+        "- Also note what the model did well\n"
+        "- A successful reference trajectory is provided. Compare it with the model's trajectory "
+        "and use it to inform your reflection.",
+    )
+    .replace(
+        "**Full Playbook:**",
+        "**Reference Trajectory (GT):**\n"
+        "{gt_trajectory}\n\n"
+        "**Full Playbook:**",
+    )
+)

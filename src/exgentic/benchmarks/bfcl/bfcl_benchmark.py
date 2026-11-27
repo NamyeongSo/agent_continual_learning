@@ -83,6 +83,7 @@ class BFCLBenchmark(Benchmark, BaseModel):
         return "exgentic.benchmarks.bfcl.bfcl_eval:BFCLSession"
 
     subset: BFCLSubset = "simple_python"
+    auxiliary_turn_metrics: bool = False
 
     def list_subsets(self) -> list[str]:  # type: ignore[override]
         return list(self.available_subsets)
@@ -90,4 +91,5 @@ class BFCLBenchmark(Benchmark, BaseModel):
     def _get_evaluator_kwargs(self) -> dict[str, Any]:
         return {
             "subset": self.subset,
+            "auxiliary_turn_metrics": self.auxiliary_turn_metrics,
         }

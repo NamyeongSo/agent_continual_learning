@@ -1,0 +1,8 @@
+{optional_optimizer_meta_skill_context}## Current Skill
+{skill_content}
+
+## Two pre-merged patch groups to combine
+Group 1 (failure-driven, HIGH priority): {failure_edit_count} edits
+Group 2 (success-driven, lower priority): {success_edit_count} edits
+
+{combined_text}

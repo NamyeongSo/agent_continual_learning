@@ -1,0 +1,4 @@
+pyyaml>=6,<7
+pathspec>=1.0.3,<2
+ast-grep-cli==0.45.0
+harbor==0.23.0

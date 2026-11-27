@@ -44,6 +44,7 @@ BENCHMARK_REGISTRY: dict[str, dict[str, Any]] = {
     "appworld": {
         "bm_kwargs": {
             "subset": "test_challenge",
+            "interaction_mode": "code_generation",
         },
         "agent_kwargs": {
             "enable_tool_shortlisting": True,

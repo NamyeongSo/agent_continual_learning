@@ -1,0 +1,147 @@
+# Official source pins and supplied prompt provenance. Digests below are public, non-secret identifiers.
+"schema_version" = 1
+"prepared_at" = "2026-10-19T08:32:29.375799+00:00"
+"scope" = "upstream-foundation-only"
+
+["sources"]
+
+["sources"."dspy"]
+"url" = "https://github.com/stanfordnlp/dspy.git"
+"commit" = "1a4f8372eb47e28d975cebf5d09ca6d7f863d32b" # pragma: allowlist secret - public revision or content checksum
+"version" = "3.4.1"
+"license" = "MIT"
+"path" = ".exgentic/baselines/upstream/dspy"
+
+["sources"."gepa"]
+"url" = "https://github.com/gepa-ai/gepa.git"
+"commit" = "f1cfdee2856e9dc4b5b4dc5cc2e391d0aa20d819" # pragma: allowlist secret - public revision or content checksum
+"version" = "0.1.4"
+"license" = "MIT"
+"path" = ".exgentic/baselines/upstream/gepa"
+
+["sources"."skillopt"]
+"url" = "https://github.com/microsoft/SkillOpt.git"
+"commit" = "1a44050fc53aa4938a7a3927b6cca550491bfe51" # pragma: allowlist secret - public revision or content checksum
+"version" = "0.2.0"
+"license" = "MIT"
+"path" = ".exgentic/baselines/upstream/skillopt"
+
+["environments"]
+
+["environments"."gepa"]
+"path" = ".exgentic/baselines/venvs/gepa"
+"sources" = ["dspy", "gepa"]
+"requirements" = "requirements-gepa.lock.txt"
+"python" = "3.12"
+
+["environments"."skillopt"]
+"path" = ".exgentic/baselines/venvs/skillopt"
+"sources" = ["skillopt"]
+"requirements" = "requirements-skillopt.lock.txt"
+"python" = "3.12"
+
+["prompt_archive"]
+"path" = "team_prompt/gepa_skillopt_prompts.zip"
+"sha256" = "20967851eb5a3da7221430b6076ad5d1424d9ebcc178dc383ea57e9d4693c0c0" # pragma: allowlist secret - public revision or content checksum
+
+["prompt_archive"."files"]
+
+["prompt_archive"."files"."PROMPTS.md"]
+"sha256" = "ff6c99728edb7e38605003b7a590e0bc34ed2fe293a50685f87f885c050a5a7b" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 26665
+
+["prompt_archive"."files"."gepa/base/appworld.txt"]
+"sha256" = "9696c015300c518e954c225f8a83f4d6371bde11a4418cf4065fa576640dab41" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 3698
+
+["prompt_archive"."files"."gepa/base/shared.txt"]
+"sha256" = "7f1da99c34359f5df656991c9760fced69d983383cd98eae4f9601cfdda6adcd" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 426
+
+["prompt_archive"."files"."gepa/base/bfcl.txt"]
+"sha256" = "33da2fb82225537e77f31816ca73c298d7830e4459156137684b0a9c2e149198" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 414
+
+["prompt_archive"."files"."gepa/base/terminalbench2.txt"]
+"sha256" = "3804c8fdcaccc6523c295b25d7e9476e2dd350b31832cf81e9abb37257825c41" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 322
+
+["prompt_archive"."files"."gepa/reflection/instruction_proposal.txt"]
+"sha256" = "81f07b0376fc510ef9a5a3f2bd7ebb55f699ff82d439e0edbd659f5ec2d987ae" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 964
+
+["prompt_archive"."files"."skillopt/optimizer/ranking.md"]
+"sha256" = "8bf37725b7b328d8d54af7a8fb173179bdd0f02b57399ed2cc7a5b5d25edea8a" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 999
+
+["prompt_archive"."files"."skillopt/optimizer/meta_skill.md"]
+"sha256" = "b2bab7f7635cd2a94348de6adf15ceaa247ddabd0a2a8bb7c53eab5cfca7deba" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1755
+
+["prompt_archive"."files"."skillopt/optimizer/merge_failure.md"]
+"sha256" = "071313895da226840164ccda6e7f01d5f849ea128037d3f337cddab66ae799db" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1422
+
+["prompt_archive"."files"."skillopt/optimizer/merge_success.md"]
+"sha256" = "6b816bcf5526d31164b779921f3c8c847541bf92fbe26c6a38b555eb3b753712" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1121
+
+["prompt_archive"."files"."skillopt/optimizer/analyst_success.md"]
+"sha256" = "0ffc8f85e13af2b14e1b9f3307a44d30ecf60e9d803ccb9190fdd9785e43fabc" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1646
+
+["prompt_archive"."files"."skillopt/optimizer/merge_final.md"]
+"sha256" = "b2c7b452032fbbe3b223e877b766ea6202775d685c3b32e68956a402e775b84b" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1398
+
+["prompt_archive"."files"."skillopt/optimizer/slow_update.md"]
+"sha256" = "7f6f97d2283a370ad072a91ad61e152551f4f4eb4f519c9a1c5c60679b4782f2" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 2998
+
+["prompt_archive"."files"."skillopt/optimizer/analyst_error.md"]
+"sha256" = "40eaf561c7fdbdfc1c7a1febd9f7c3540270ca6d5e7e0a8798c7c90b8d303200" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1951
+
+["prompt_archive"."files"."skillopt/user/analyst_error.txt"]
+"sha256" = "e4e7ce4cff1f2a05d7bf3dface6a6f6f6e993f68e2f71d8ff0f926822ace97bc" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 232
+
+["prompt_archive"."files"."skillopt/user/analyst_success.txt"]
+"sha256" = "93439296dfca6081aa307dcd43f2a8a52e240dbfa24c539ac0ea846f85465ebb" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 236
+
+["prompt_archive"."files"."skillopt/user/ranking.txt"]
+"sha256" = "8978ab4650b67e3a0e24db8e6cfe8b1ca9cf4042e390371f38edf8988a2bd1ef" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 250
+
+["prompt_archive"."files"."skillopt/user/slow_update.txt"]
+"sha256" = "249ad07d9c3c234498ff877cd4d01f63d0bd8d84f423d5ec33c7e3233aab4d4b" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 343
+
+["prompt_archive"."files"."skillopt/user/merge_failure_success.txt"]
+"sha256" = "1ab8eeb9caace899401e10a4e75daeb1bfdcfae9fb36859c32ac9c0e0ee258a1" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 151
+
+["prompt_archive"."files"."skillopt/user/merge_final.txt"]
+"sha256" = "76639f74c32c11e6d7497de8af0a90616264ce8f26286721c52ccd61b2c3f0b4" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 269
+
+["prompt_archive"."files"."skillopt/user/meta_skill.txt"]
+"sha256" = "f58a388cf409c5afdddbc5620212e4feed6b9001820faf35af7ca49a8de370f7" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 364
+
+["prompt_archive"."files"."skillopt/base/appworld.md"]
+"sha256" = "741a252c939e9b68bb18f7bcc44d8ab2fe18ca5ca57de5e3801319991645b6d3" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1350
+
+["prompt_archive"."files"."skillopt/base/terminalbench2.md"]
+"sha256" = "d9c9f5a8a1c8b7455450f2ad1f0c734572e6e900164cc1894ef60780257dd490" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 621
+
+["prompt_archive"."files"."skillopt/base/bfcl.md"]
+"sha256" = "5b3bfbe789504286dfdaaaab3a38d9ee4ec93e5c4266f7909100e71bd1212c53" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1025
+
+["prompt_archive"."files"."skillopt/base/seed_skill.md"]
+"sha256" = "928bff22bfcb9acac0352835cb9160f9c94bfbca16795f0fd0c26637a9726ee8" # pragma: allowlist secret - public revision or content checksum
+"bytes" = 1407

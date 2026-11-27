@@ -1,0 +1,47 @@
+{
+  "experiment": "ace_reflection_accumulation",
+  "model": "openai/openai/gpt-oss-20b",
+  "model_revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+  "base_url": "http://127.0.0.1:8006/v1",
+  "gpu_physical_id": 1,
+  "model_settings": {
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "reasoning_effort": "low",
+    "max_tokens": null,
+    "timeout": 600,
+    "num_retries": 1
+  },
+  "actor_limits": {
+    "input_tokens_per_turn": 100000,
+    "output_tokens_per_turn": null,
+    "max_turns": 40,
+    "policy_version": "actor-turn-v3-output-unlimited-appworld-turncap-pct-v1"
+  },
+  "turn_limit_scoring": "official_pct_at_limit",
+  "appworld_policy_sha256": "082147d2215b74ce52131e6ef30baa342aeaf4099e2e475f0bbb97fed9fe195d",
+  "actor_context": "shared-empty-v1",
+  "playbook_edit_mode": "add_only",
+  "primary_metric": "individual_test_pass_fraction",
+  "generation_mode": "reasoning_effort",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "evaluation_repeats": 1,
+  "source_candidate_repeats": 3,
+  "evaluation_workers": 200,
+  "global_concurrency": 200,
+  "training_context_workers": 6,
+  "selection_score": "exact mean of three official PCT rewards",
+  "tie_break": "uniform random among exact ties",
+  "seed_phase_order": [
+    "curator_training",
+    "train_final",
+    "bwt_checkpoint",
+    "val"
+  ],
+  "original_protocol_sha256": "bfaae3182e72b7a20d3bd08e320f607c3f08eb3b65a1476b650e664d0047322a",
+  "source_relative_path": "outputs/ace_appworld_gpt_oss20b_add_only_20261120/low/accumulation/protocol.json"
+}

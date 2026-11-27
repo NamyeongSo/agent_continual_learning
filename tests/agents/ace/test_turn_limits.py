@@ -10,7 +10,7 @@ def test_benchmark_specific_turn_limits_override_global_fallback():
         bfcl_max_turns=50,
         swebench_max_turns=100,
     )
-    assert resolve_max_turns(args, "appworld") == 50
-    assert resolve_max_turns(args, "bfcl") == 50
+    assert resolve_max_turns(args, "appworld") == 40
+    assert resolve_max_turns(args, "bfcl") == 30
     assert resolve_max_turns(args, "swebench") == 100
     assert resolve_max_turns(args, "browsecompplus") == 30

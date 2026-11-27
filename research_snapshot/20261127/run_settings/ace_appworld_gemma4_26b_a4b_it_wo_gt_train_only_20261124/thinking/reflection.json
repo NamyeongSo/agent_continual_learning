@@ -1,0 +1,67 @@
+{
+  "experiment": "ace_appworld_context_proposal_bottleneck",
+  "model": "openai/google/gemma-4-26B-A4B-it",
+  "model_revision": "4d7ae4984b7db7de8f8457170b3f1a419ee76d52",
+  "base_url": "http://127.0.0.1:8006/v1",
+  "gpu_physical_id": 1,
+  "model_settings": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "max_tokens": null,
+    "timeout": 600,
+    "num_retries": 1,
+    "extra_body": {
+      "top_k": 64,
+      "chat_template_kwargs": {
+        "enable_thinking": true,
+        "preserve_thinking": true
+      }
+    }
+  },
+  "actor_limits": {
+    "input_tokens_per_turn": 100000,
+    "output_tokens_per_turn": null,
+    "max_turns": 40,
+    "policy_version": "actor-turn-v3-output-unlimited-appworld-turncap-pct-v1"
+  },
+  "turn_limit_scoring": "official_pct_at_limit",
+  "appworld_policy_sha256": "082147d2215b74ce52131e6ef30baa342aeaf4099e2e475f0bbb97fed9fe195d",
+  "actor_context": "shared-empty-v1",
+  "playbook_edit_mode": "add_only",
+  "primary_metric": "individual_test_pass_fraction",
+  "generation_mode": "thinking",
+  "history_policy": "Strip ordinary past reasoning; retain tool-call reasoning; official pinned Gemma template",
+  "history_policy_version": "gemma-tool-reasoning-history-v1",
+  "arms": [
+    "without_gt"
+  ],
+  "stage3_repeats_per_context": 3,
+  "stages": [
+    {
+      "stage": 1,
+      "name": "initial_rollouts",
+      "total_jobs": 250,
+      "max_workers": 100
+    },
+    {
+      "stage": 2,
+      "name": "reflection_update",
+      "total_jobs": 250,
+      "max_workers": 100,
+      "jobs_per_arm": {
+        "without_gt": 250
+      }
+    },
+    {
+      "stage": 3,
+      "name": "updated_context_rollouts",
+      "total_jobs": 750,
+      "max_workers": 100,
+      "jobs_per_arm": {
+        "without_gt": 750
+      }
+    }
+  ],
+  "original_protocol_sha256": "45813f44a17d9045a309fc67baadfbda0d2b20c5ac76b1098f371c444cc74b57",
+  "source_relative_path": "outputs/ace_appworld_gemma4_26b_a4b_it_wo_gt_train_only_20261124/thinking/reflection/protocol.json"
+}

@@ -1,0 +1,5 @@
+{optional_optimizer_meta_skill_context}## Current Skill
+{skill_content}
+
+## Patches to merge ({patch_count} total, merge level {level})
+{patches_text}

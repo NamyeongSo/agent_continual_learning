@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exgentic · 실험 현황</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f6f8;
+      --surface: #ffffff;
+      --ink: #172b3b;
+      --muted: #627487;
+      --line: #dce4eb;
+      --blue: #1769aa;
+      --blue-soft: #e7f1fa;
+      --teal: #087b71;
+      --teal-soft: #e5f5f0;
+      --amber: #9a6215;
+      --amber-soft: #fff3df;
+      --red: #ae4242;
+      --red-soft: #ffeded;
+      --shadow: 0 16px 42px rgba(27, 48, 68, .065);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: Inter, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, select { font: inherit; }
+    button, select, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #69aee1; outline-offset: 2px; }
+    .shell { max-width: 1540px; margin: 0 auto; padding: 28px clamp(18px, 3vw, 48px) 64px; }
+    .topline { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 25px; }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 850; letter-spacing: .16em; text-transform: uppercase; }
+    .brand-mark { width: 27px; height: 27px; border-radius: 9px; background: conic-gradient(from 90deg, #71bbd7, #1d77af, #0f776e, #71bbd7); transform: rotate(-12deg); box-shadow: 0 3px 10px #166b9d33; }
+    .top-meta { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 12px; }
+    .live-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #bfe3d4; background: var(--teal-soft); color: var(--teal); padding: 6px 10px; border-radius: 100px; font-weight: 800; letter-spacing: .06em; }
+    .live-dot { width: 7px; height: 7px; background: #19a781; border-radius: 50%; box-shadow: 0 0 0 4px #1aa7811c; }
+    .hero { position: relative; overflow: hidden; border-radius: 24px; padding: 37px 42px; background: linear-gradient(117deg, #193f5b 0%, #164c67 54%, #0e706c 100%); color: #fff; box-shadow: 0 24px 50px #1a46622b; }
+    .hero:after { content: ""; position: absolute; inset: -90px -70px auto auto; width: 390px; height: 390px; border: 1px solid #ffffff30; border-radius: 50%; box-shadow: 0 0 0 68px #ffffff08, 0 0 0 145px #ffffff07; pointer-events: none; }
+    .eyebrow { color: #a9e3db; font-size: 11px; font-weight: 850; letter-spacing: .2em; text-transform: uppercase; margin: 0 0 11px; }
+    h1 { font-size: clamp(29px, 3.3vw, 43px); line-height: 1.16; letter-spacing: -.035em; margin: 0 0 12px; }
+    .hero-copy { color: #d3e6ee; margin: 0; max-width: 700px; font-size: 14px; line-height: 1.7; }
+    .hero-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+    .refresh { border: 1px solid #ffffff5c; color: #fff; background: #ffffff1f; border-radius: 10px; padding: 9px 14px; cursor: pointer; font-weight: 750; transition: background .2s, transform .2s; }
+    .refresh:hover { background: #ffffff30; transform: translateY(-1px); }
+    .refresh[disabled] { opacity: .55; cursor: progress; }
+    .hero-link { color: #e4f7f4; text-decoration: none; font-size: 12px; padding: 9px 11px; }
+    .hero-link:hover { text-decoration: underline; }
+    .updated { font-size: 12px; color: #d4e7eb; }
+    .notice { margin-top: 16px; padding: 11px 15px; border-radius: 10px; background: var(--amber-soft); color: var(--amber); font-size: 13px; display: none; }
+    .notice.visible { display: block; }
+    .summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 13px; margin: 20px 0 26px; }
+    .stat { min-height: 124px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 19px 20px; box-shadow: var(--shadow); }
+    .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .stat-number { font-size: clamp(23px, 2.7vw, 34px); font-weight: 850; margin-top: 12px; letter-spacing: -.055em; font-variant-numeric: tabular-nums; }
+    .stat-small { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .stat.accent .stat-number { color: var(--teal); }
+    .stat.warn .stat-number { color: var(--amber); }
+    .section-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; margin-bottom: 26px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+    .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 20px 22px 15px; border-bottom: 1px solid #edf1f5; }
+    h2 { margin: 0; font-size: 18px; letter-spacing: -.025em; }
+    h3 { margin: 0; font-size: 14px; }
+    .small { color: var(--muted); font-size: 12px; }
+    .active-list { padding: 7px 14px 12px; max-height: 380px; overflow: auto; }
+    .active-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; padding: 12px 8px; border-bottom: 1px solid #eef2f5; }
+    .active-item:last-child { border-bottom: 0; }
+    .active-title { font-size: 13px; font-weight: 780; }
+    .active-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .active-count { font-size: 12px; font-weight: 750; font-variant-numeric: tabular-nums; align-self: center; }
+    .progress-track { height: 5px; background: #edf1f5; border-radius: 10px; grid-column: 1 / -1; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--blue), #42b5b0); border-radius: inherit; }
+    .process-list { padding: 10px 18px 17px; max-height: 380px; overflow: auto; }
+    .process-item { padding: 8px 4px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid #eef2f5; font-size: 12px; }
+    .process-item:last-child { border-bottom: 0; }
+    .process-main { min-width: 0; }
+    .process-main strong, .process-main span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .process-main span { margin-top: 2px; color: var(--muted); }
+    .pid { font-variant-numeric: tabular-nums; color: var(--muted); border: 1px solid var(--line); padding: 3px 7px; border-radius: 6px; }
+    .empty { padding: 24px; color: var(--muted); font-size: 13px; text-align: center; }
+    .body-panel { margin-top: 18px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 15px 20px; border-bottom: 1px solid var(--line); }
+    .toolbar label { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    select { background: #f8fafc; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); padding: 8px 12px; font-size: 12px; cursor: pointer; min-width: 128px; }
+    .checkbox { margin-left: auto; }
+    .checkbox input { accent-color: var(--teal); }
+    .table-scroll { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+    th { background: #f8fafc; color: #617184; font-size: 11px; letter-spacing: .02em; font-weight: 800; white-space: nowrap; }
+    td, th { padding: 12px 14px; border-bottom: 1px solid #edf1f5; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #f7fbfd; }
+    td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    td.main-cell { font-weight: 800; white-space: nowrap; }
+    td.muted-cell { color: var(--muted); }
+    .status { display: inline-block; border-radius: 100px; padding: 4px 9px; font-weight: 750; font-size: 11px; white-space: nowrap; background: #edf1f5; color: #596c7c; }
+    .status.running, .status.evaluating { background: var(--blue-soft); color: var(--blue); }
+    .status.done, .status.trained { background: var(--teal-soft); color: var(--teal); }
+    .status.failed, .status.stopped, .status.evaluation_errors { background: var(--red-soft); color: var(--red); }
+    .bar-cell { min-width: 160px; }
+    .bar-line { display: flex; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 700; margin-bottom: 5px; }
+    .mini-track { height: 5px; background: #edf1f5; border-radius: 9px; overflow: hidden; }
+    .mini-track span { display: block; height: 100%; background: #2696a2; border-radius: 9px; }
+    .error-count { color: var(--red); font-weight: 800; }
+    .score-tabs { display: flex; gap: 5px; padding: 16px 20px 0; border-bottom: 1px solid var(--line); }
+    .tab { border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font-weight: 750; padding: 8px 15px 12px; cursor: pointer; }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .score-note { padding: 13px 20px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .score-value { font-weight: 780; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .score-sub { color: var(--muted); font-size: 10px; margin-top: 3px; white-space: nowrap; }
+    .score-sub.problem { color: var(--red); }
+    .mean { color: var(--blue); font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .footnote { color: var(--muted); font-size: 11px; line-height: 1.65; padding: 0 2px; margin-top: 18px; }
+    @media (max-width: 1100px) { .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } .section-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 650px) { .shell { padding-top: 16px; } .topline { align-items: flex-start; } .top-meta { flex-direction: column; align-items: flex-end; gap: 5px; } .hero { padding: 29px 25px; } .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat { min-height: 105px; padding: 15px; } .toolbar { align-items: stretch; } .checkbox { margin-left: 0; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topline">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span> Exgentic <span style="color:#8395a3;font-weight:600;letter-spacing:0">/ Research</span></div>
+      <div class="top-meta"><span class="live-pill"><span class="live-dot"></span> LOCAL LIVE</span><span>30초 자동 새로고침</span></div>
+    </div>
+    <header class="hero">
+      <p class="eyebrow">Experiment observatory</p>
+      <h1>실험 현황과 점수</h1>
+      <p class="hero-copy">ACE · PREMiSE · ps_st_pareto의 Initial, Sequential, Interleaved 학습과 체크포인트 평가를 한곳에서 확인합니다.</p>
+      <div class="hero-actions">
+        <button id="refreshButton" class="refresh" type="button">↻ &nbsp;지금 새로고침</button>
+        <a id="jsonLink" class="hero-link" href="/api/status?metric=official" target="_blank" rel="noopener">원본 JSON ↗</a>
+        <span id="updated" class="updated" aria-live="polite">자료를 불러오는 중…</span>
+      </div>
+    </header>
+    <div id="notice" class="notice" role="status"></div>
+
+    <section id="summary" class="summary" aria-label="전체 요약"></section>
+
+    <div class="section-grid">
+      <section class="panel">
+        <div class="panel-head"><h2>지금 진행 중인 실험</h2><span id="activeCount" class="small"></span></div>
+        <div id="activeRuns" class="active-list"><div class="empty">불러오는 중…</div></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>실행 중 프로세스</h2><span id="processCount" class="small"></span></div>
+        <div id="processes" class="process-list"><div class="empty">불러오는 중…</div></div>
+      </section>
+    </div>
+
+    <section class="panel body-panel">
+      <div class="panel-head"><div><h2>학습 · 평가 진행률</h2><span class="small">행마다 한 seed의 실험을 표시합니다.</span></div><span id="visibleRuns" class="small"></span></div>
+      <div class="toolbar">
+        <label>방법 <select id="methodFilter"><option value="all">전체 방법</option><option value="ace">ACE</option><option value="premise">PREMiSE</option><option value="ps_st_pareto">ps_st_pareto</option></select></label>
+        <label>설정 <select id="settingFilter"><option value="all">전체 설정</option><option value="initial">Initial</option><option value="sequential">Sequential</option><option value="interleaved">Interleaved</option></select></label>
+        <label class="checkbox"><input id="activeOnly" type="checkbox"> 진행 중만</label>
+      </div>
+      <div class="table-scroll"><table><thead><tr><th>방법</th><th>설정</th><th class="numeric">Seed</th><th>상태</th><th>학습</th><th>BFCL / AppWorld / Terminal</th><th>Test 평가</th><th class="numeric">완료 평가</th><th class="numeric">오류</th></tr></thead><tbody id="trainingRows"></tbody></table></div>
+    </section>
+
+    <section class="panel body-panel">
+      <div class="panel-head"><div><h2>체크포인트 점수</h2><span class="small">Seed별 값과 완료된 seed의 평균 ± 표본표준편차</span></div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center"><label class="small">벤치마크 <select id="benchmarkFilter"><option value="all">전체</option><option value="bfcl">BFCL</option><option value="appworld">AppWorld</option><option value="terminalbench2">Terminal-Bench</option></select></label>
+        <label class="small">Offline 점수 <select id="metricFilter"><option value="official">공식 성공률</option><option value="task-mean">Task 평균 점수</option></select></label></div>
+      </div>
+      <div class="score-tabs" role="tablist" aria-label="점수 유형"><button class="tab active" id="onlineTab" role="tab" aria-selected="true" type="button">Online · 학습 rollout</button><button class="tab" id="offlineTab" role="tab" aria-selected="false" type="button">Offline · Test 평가</button></div>
+      <div id="scoreNote" class="score-note"></div>
+      <div class="table-scroll"><table><thead><tr><th>방법</th><th>설정</th><th class="numeric">Checkpoint</th><th>벤치마크</th><th class="numeric">Seed 42</th><th class="numeric">Seed 43</th><th class="numeric">Seed 44</th><th class="numeric">평균 ± SD</th></tr></thead><tbody id="scoreRows"></tbody></table></div>
+    </section>
+
+    <p class="footnote">Initial은 벤치마크별 독립 학습입니다. Online은 체크포인트 직전 구간의 학습 task 점수 평균이며 PREMiSE 계열은 두 부모 중 높은 점수를 사용합니다. Offline 공식 평균에는 오류 없이 완료된 평가만 포함합니다. 중간 task 평균은 기록된 task만 분모에 넣고 실행 오류 점수는 0으로 계산한 참고값입니다. 이 화면은 읽기 전용입니다.</p>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
+    const pct = (value) => value == null ? "—" : (100 * value).toFixed(2) + "%";
+    const methodName = {ace:"ACE", premise:"PREMiSE", ps_st_pareto:"ps_st_pareto"};
+    const benchName = {bfcl:"BFCL", appworld:"AppWorld", terminalbench2:"Terminal-Bench"};
+    const statusName = {running:"학습 중", evaluating:"평가 중", trained:"학습 완료", done:"완료", pending:"대기", stopped:"중단", failed:"실패", evaluation_errors:"평가 오류"};
+    const benchOrder = ["bfcl", "appworld", "terminalbench2"];
+    const methodOrder = ["ace", "premise", "ps_st_pareto"];
+    const settingOrder = ["initial", "sequential", "interleaved"];
+    let payload = null;
+    let selectedTab = "online";
+    let loading = false;
+
+    function settingName(run) {
+      return run.setting === "initial" ? "Initial · " + (benchName[run.train_benchmark] || run.train_benchmark) :
+        run.setting === "sequential" ? "Sequential" : "Interleaved";
+    }
+    function isActive(run) { return run.status === "running" || run.status === "evaluating"; }
+    function filteredRuns() {
+      if (!payload) return [];
+      return payload.report.runs.filter((run) =>
+        ($("methodFilter").value === "all" || run.method === $("methodFilter").value) &&
+        ($("settingFilter").value === "all" || run.setting === $("settingFilter").value));
+    }
+    function stat(label, value, detail, cls="") {
+      return `<div class="stat ${cls}"><div class="stat-label">${esc(label)}</div><div class="stat-number">${esc(value)}</div><div class="stat-small">${esc(detail)}</div></div>`;
+    }
+    function renderSummary() {
+      const runs = payload.report.runs;
+      const evals = runs.map((run) => run.evaluation_progress);
+      const sum = (field) => evals.reduce((total, row) => total + (row[field] || 0), 0);
+      $("summary").innerHTML = [
+        stat("진행 중", runs.filter(isActive).length, `학습 ${runs.filter((run) => run.status === "running").length} · 평가 ${runs.filter((run) => run.status === "evaluating").length}`, "accent"),
+        stat("학습 완료", runs.filter((run) => run.cursor >= run.total).length, "평가 진행 여부와 별개"),
+        stat("중단 · 실패", runs.filter((run) => ["stopped","failed","evaluation_errors"].includes(run.status)).length, "확인이 필요한 실험", "warn"),
+        stat("Test task", `${sum("processed_tasks").toLocaleString()} / ${sum("total_tasks").toLocaleString()}`, "처리 완료 / 계획"),
+        stat("정상 완료 평가", `${sum("clean_groups")} / ${sum("groups")}`, "오류 없는 평가 묶음", "accent"),
+        stat("평가 실행 오류", sum("errors"), "개별 test task 기준", sum("errors") ? "warn" : "")
+      ].join("");
+    }
+    function renderActive() {
+      const runs = payload.report.runs.filter(isActive).sort((a,b) =>
+        methodOrder.indexOf(a.method)-methodOrder.indexOf(b.method) ||
+        settingOrder.indexOf(a.setting)-settingOrder.indexOf(b.setting) || a.seed-b.seed);
+      $("activeCount").textContent = `${runs.length}개`;
+      $("activeRuns").innerHTML = runs.length ? runs.map((run) => {
+        const value = Math.min(100, Math.round(100 * run.cursor / run.total));
+        const detail = `${settingName(run)} · seed ${run.seed} · 평가 ${run.evaluation_progress.processed_tasks}/${run.evaluation_progress.total_tasks}`;
+        return `<div class="active-item"><div><div class="active-title">${esc(methodName[run.method])}</div><div class="active-meta">${esc(detail)}</div></div><div class="active-count">${run.cursor}/${run.total}</div><div class="progress-track"><div class="progress-fill" style="width:${value}%"></div></div></div>`;
+      }).join("") : `<div class="empty">진행 중으로 표시된 학습이 없습니다. 평가 프로세스는 오른쪽에서 확인하세요.</div>`;
+      const processes = payload.processes;
+      $("processCount").textContent = `${processes.length}개`;
+      $("processes").innerHTML = processes.length ? processes.map((row) =>
+        `<div class="process-item"><div class="process-main"><strong>${row.method ? esc(methodName[row.method]) + " · " : ""}${esc(row.script)}</strong><span>${esc(row.target)}</span></div><span class="pid">PID ${esc(row.pid)}</span></div>`
+      ).join("") : `<div class="empty">감지된 실험 프로세스가 없습니다.</div>`;
+    }
+    function bar(value,total) {
+      const percent = total ? Math.min(100, Math.round(100 * value / total)) : 0;
+      return `<div class="bar-cell"><div class="bar-line"><span>${value} / ${total}</span><span>${percent}%</span></div><div class="mini-track"><span style="width:${percent}%"></span></div></div>`;
+    }
+    function renderTraining() {
+      const runs = filteredRuns().filter((run) => !$("activeOnly").checked || isActive(run));
+      $("visibleRuns").textContent = `${runs.length}개 표시`;
+      $("trainingRows").innerHTML = runs.length ? runs.map((run) => {
+        const p = run.evaluation_progress;
+        const counts = benchOrder.map((bench) => run.counts[bench] || 0).join(" / ");
+        return `<tr><td class="main-cell">${esc(methodName[run.method])}</td><td>${esc(settingName(run))}</td><td class="numeric">${run.seed}</td><td><span class="status ${esc(run.status)}">${esc(statusName[run.status] || run.status)}</span></td><td>${bar(run.cursor,run.total)}</td><td class="muted-cell">${esc(counts)}${run.skipped ? ` · <span class="error-count">${run.skipped} skip</span>` : ""}</td><td>${bar(p.processed_tasks,p.total_tasks)}</td><td class="numeric">${p.clean_groups}/${p.groups}</td><td class="numeric ${p.errors ? "error-count" : ""}">${p.errors}</td></tr>`;
+      }).join("") : `<tr><td colspan="9" class="empty">필터에 맞는 실험이 없습니다.</td></tr>`;
+    }
+    function seedScore(item, type) {
+      if (!item) return `<span class="small">—</span>`;
+      if (item.score == null) {
+        const processed = type === "online" ? item.scored : item.processed;
+        const total = item.planned ?? item.total;
+        const errors = type === "offline" && item.errors ? ` · 오류 ${item.errors}` : "";
+        const observed = type === "offline" && item.task_mean_score != null && processed > 0 ?
+          ` · 중간 task ${pct(item.task_mean_score)}` : "";
+        return `<span class="small">—</span><div class="score-sub ${errors ? "problem" : ""}">${processed}/${total}${errors}${observed}</div>`;
+      }
+      const processed = type === "online" ? item.scored : item.processed;
+      const total = item.planned ?? item.total;
+      const extra = type === "offline" && item.errors ? ` · 오류 ${item.errors}` :
+        type === "online" && !item.complete ? " · 진행 중" :
+        type === "online" && item.scored < item.planned ? ` · skip ${item.planned - item.scored}` : "";
+      const problem = (type === "offline" && item.errors) || !item.complete;
+      return `<span class="score-value">${pct(item.score)}</span><div class="score-sub ${problem ? "problem" : ""}">${processed}/${total}${extra}</div>`;
+    }
+    function aggregate(items, type) {
+      const valid = items.filter((item) => item && item.score != null &&
+        (type === "online" ? item.complete : item.clean_complete)).map((item) => item.score);
+      const stats = (values) => {
+        const mean = values.reduce((a,b) => a+b, 0) / values.length;
+        const std = values.length > 1 ? Math.sqrt(values.reduce((sum,value) => sum + (value-mean)**2, 0)/(values.length-1)) : null;
+        return `${(mean*100).toFixed(2)}${std == null ? "" : ` ± ${(std*100).toFixed(2)}`}%`;
+      };
+      const final = valid.length ?
+        `<span class="mean">${stats(valid)}</span><div class="score-sub">${valid.length}/3 seed</div>` :
+        `<span class="small">—</span>`;
+      if (type !== "offline") return final;
+      const interim = items.filter((item) => item && item.task_mean_score != null && item.processed > 0 &&
+        !(item.protocol_errors || []).length);
+      if (!interim.length || (interim.length === valid.length &&
+          interim.every((item) => item.errors === 0 && item.processed === item.total))) return final;
+      const observed = interim.map((item) => item.task_mean_score);
+      const processed = interim.reduce((sum,item) => sum + item.processed, 0);
+      const total = interim.reduce((sum,item) => sum + item.total, 0);
+      const errors = interim.reduce((sum,item) => sum + item.errors, 0);
+      return `${final}<div class="score-sub problem">중간 task 평균 ${stats(observed)} · ${interim.length}/3 seed · ${processed}/${total} task · 오류 ${errors}</div>`;
+    }
+    function scoreGroups(runs, type) {
+      const groups = new Map();
+      for (const run of runs) {
+        for (const item of run[type]) {
+          if ($("benchmarkFilter").value !== "all" && item.benchmark !== $("benchmarkFilter").value) continue;
+          const key = [run.method,run.setting,run.train_benchmark || "",item.checkpoint,item.benchmark].join("|");
+          if (!groups.has(key)) groups.set(key,{run,item,seeds:{}});
+          groups.get(key).seeds[run.seed] = item;
+        }
+      }
+      return [...groups.values()].sort((a,b) =>
+        methodOrder.indexOf(a.run.method)-methodOrder.indexOf(b.run.method) ||
+        settingOrder.indexOf(a.run.setting)-settingOrder.indexOf(b.run.setting) ||
+        benchOrder.indexOf(a.run.train_benchmark)-benchOrder.indexOf(b.run.train_benchmark) ||
+        a.item.checkpoint-b.item.checkpoint || benchOrder.indexOf(a.item.benchmark)-benchOrder.indexOf(b.item.benchmark));
+    }
+    function renderScores() {
+      const type = selectedTab;
+      $("onlineTab").classList.toggle("active", type === "online");
+      $("offlineTab").classList.toggle("active", type === "offline");
+      $("onlineTab").setAttribute("aria-selected", type === "online");
+      $("offlineTab").setAttribute("aria-selected", type === "offline");
+      $("scoreNote").textContent = type === "online" ?
+        "AppWorld는 TGC(점수가 기록된 task 중 완전 성공한 task의 비율)를 표시합니다. PREMiSE·ps_st_pareto는 두 부모 중 하나라도 완전 성공하면 해당 task를 성공으로 집계합니다. Interleaved는 checkpoint별 누적 구간(1~50, 1~100, 1~130)에서 벤치마크별로 집계합니다. 미도달 checkpoint는 seed 평균에서 제외합니다." :
+        ($("metricFilter").value === "official" ? "AppWorld는 task 완전 성공률을 표시합니다." : "AppWorld는 task별 부분 점수의 평균을 표시합니다.") +
+        " 공식 평균에는 정상 완료된 seed만 포함합니다. 중간 task 평균은 기록된 task만 분모에 넣고 실행 오류는 0점으로 둔 참고값입니다.";
+      const rows = scoreGroups(filteredRuns(),type).filter((group) =>
+        Object.values(group.seeds).some((item) => item.score != null ||
+          (type === "online" ? item.scored > 0 : item.processed > 0)));
+      $("scoreRows").innerHTML = rows.length ? rows.map(({run,item,seeds}) => {
+        const seedItems = [seeds[42],seeds[43],seeds[44]];
+        return `<tr><td class="main-cell">${esc(methodName[run.method])}</td><td>${esc(settingName(run))}</td><td class="numeric">${item.checkpoint}</td><td>${esc(benchName[item.benchmark])}</td>${seedItems.map((entry) => `<td class="numeric">${seedScore(entry,type)}</td>`).join("")}<td class="numeric">${aggregate(seedItems,type)}</td></tr>`;
+      }).join("") : `<tr><td colspan="8" class="empty">아직 표시할 점수가 없습니다.</td></tr>`;
+    }
+    function renderAll() { if (!payload) return; renderSummary(); renderActive(); renderTraining(); renderScores(); }
+    async function loadStatus() {
+      if (loading) return;
+      loading = true;
+      $("refreshButton").disabled = true;
+      const metric = $("metricFilter").value;
+      $("jsonLink").href = `/api/status?metric=${encodeURIComponent(metric)}`;
+      try {
+        const response = await fetch(`/api/status?metric=${encodeURIComponent(metric)}`,{cache:"no-store"});
+        if (!response.ok) throw new Error(`서버 응답 ${response.status}`);
+        payload = await response.json();
+        $("notice").classList.remove("visible");
+        $("updated").textContent = `집계 ${new Date(payload.report.generated_at).toLocaleString("ko-KR")} · 서버 ${new Date(payload.served_at).toLocaleTimeString("ko-KR")}`;
+        renderAll();
+      } catch (error) {
+        $("notice").textContent = `최신 자료를 불러오지 못했습니다: ${error.message}. 이전 화면을 유지합니다.`;
+        $("notice").classList.add("visible");
+      } finally {
+        loading = false;
+        $("refreshButton").disabled = false;
+      }
+    }
+    $("refreshButton").addEventListener("click",loadStatus);
+    $("metricFilter").addEventListener("change",loadStatus);
+    ["methodFilter","settingFilter","activeOnly","benchmarkFilter"].forEach((id) => $(id).addEventListener("change",renderAll));
+    $("onlineTab").addEventListener("click",() => { selectedTab="online"; renderScores(); });
+    $("offlineTab").addEventListener("click",() => { selectedTab="offline"; renderScores(); });
+    loadStatus();
+    setInterval(loadStatus,30000);
+  </script>
+</body>
+</html>

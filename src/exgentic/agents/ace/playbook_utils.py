@@ -5,7 +5,21 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from collections import Counter
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
+PlaybookEditMode = Literal["add_only", "add_update", "add_update_delete"]
+PLAYBOOK_EDIT_MODES = ("add_only", "add_update", "add_update_delete")
+
+
+def allowed_playbook_operations(edit_mode: PlaybookEditMode) -> tuple[str, ...]:
+    if edit_mode not in PLAYBOOK_EDIT_MODES:
+        raise ValueError(f"Unknown playbook edit mode: {edit_mode!r}")
+    return {
+        "add_only": ("ADD",),
+        "add_update": ("ADD", "UPDATE"),
+        "add_update_delete": ("ADD", "UPDATE", "DELETE"),
+    }[edit_mode]
 
 _SLUG_MAP = {
     "strategies_and_insights": "str",
@@ -50,7 +64,9 @@ def parse_playbook_line(line: str) -> Optional[Dict[str, Any]]:
 def format_playbook_line(
     bullet_id: str, helpful: int, harmful: int, content: str
 ) -> str:
-    return f"[{bullet_id}] helpful={helpful} harmful={harmful} :: {content}"
+    line = f"[{bullet_id}] helpful={helpful} harmful={harmful} :: {content}"
+    # Model JSON can decode a lone surrogate. Preserve its escape in the UTF-8 playbook.
+    return line.encode("utf-8", errors="backslashreplace").decode("utf-8")
 
 def update_bullet_counts(playbook_text: str, bullet_tags: List[Dict]) -> str:
     tag_map: Dict[str, str] = {}
@@ -85,7 +101,7 @@ def update_bullet_counts(playbook_text: str, bullet_tags: List[Dict]) -> str:
     return "\n".join(updated)
 
 
-def apply_curator_operations(
+def _apply_add_operations(
     playbook_text: str,
     operations: List[Dict[str, Any]],
     next_id: int,
@@ -141,6 +157,96 @@ def apply_curator_operations(
         final.append(bline)
 
     return "\n".join(final), next_id
+
+
+def apply_playbook_edits(
+    playbook_text: str,
+    operations: list[dict[str, Any]],
+    next_id: int,
+    *,
+    edit_mode: PlaybookEditMode = "add_only",
+) -> tuple[str, int, list[dict[str, Any]]]:
+    """Apply ordered edits; report only valid edits that were actually performed.
+
+    UPDATE keeps the ID, section and helpful/harmful counters. DELETE removes the
+    whole entry, including continuation lines. Neither operation consumes an ID.
+    Targets must uniquely identify an entry in the supplied parent playbook.
+    """
+    allowed = allowed_playbook_operations(edit_mode)
+    parent_ids = Counter(
+        parsed["id"] for line in playbook_text.splitlines() if (parsed := parse_playbook_line(line))
+    )
+    accepted = []
+    for operation in operations:
+        if not isinstance(operation, dict):
+            continue
+        kind = operation.get("type", operation.get("op"))
+        if kind not in allowed or ("op" in operation and operation["op"] != kind):
+            continue
+        content = operation.get("content")
+        if kind != "DELETE" and (not isinstance(content, str) or not content.strip()):
+            continue
+        op = {key: value for key, value in operation.items() if key != "op"}
+        op["type"] = kind
+        if kind == "ADD":
+            if not isinstance(op.get("section", "others"), str):
+                continue
+        else:
+            target = op.get("entry_id", op.get("bullet_id"))
+            if not isinstance(target, str) or parent_ids[target] != 1:
+                continue
+            if "bullet_id" in op and op["bullet_id"] != target:
+                continue
+            op.pop("bullet_id", None)
+            op["entry_id"] = target
+        accepted.append(op)
+
+    # Keep the original ADD-only formatting and ID allocation for the baseline.
+    if edit_mode == "add_only":
+        text, next_id = _apply_add_operations(playbook_text, accepted, next_id)
+        return text, next_id, accepted
+
+    text = playbook_text
+    applied = []
+    for op in accepted:
+        if op["type"] == "ADD":
+            # Initial playbooks may contain IDs beyond their recorded allocator.
+            # Never reuse a parent's ordinal, even when its entry was deleted.
+            ordinals = [int(match.group(1)) for bid in parent_ids if (match := re.search(r"-(\d+)$", bid))]
+            next_id = max(next_id, max(ordinals, default=0) + 1)
+            text, next_id = _apply_add_operations(text, [op], next_id)
+        else:
+            lines = text.split("\n")
+            matches = [(i, parsed) for i, line in enumerate(lines)
+                       if (parsed := parse_playbook_line(line)) and parsed["id"] == op["entry_id"]]
+            if len(matches) != 1:
+                continue  # An earlier DELETE in this batch already removed it.
+            start, bullet = matches[0]
+            end = start + 1
+            while end < len(lines) and not lines[end].strip().startswith("##") and not parse_playbook_line(lines[end]):
+                end += 1
+            while end > start + 1 and not lines[end - 1].strip():
+                end -= 1
+            replacement = [] if op["type"] == "DELETE" else format_playbook_line(
+                bullet["id"], bullet["helpful"], bullet["harmful"], op["content"],
+            ).split("\n")
+            if lines[start:end] == replacement:
+                continue
+            lines[start:end] = replacement
+            text = "\n".join(lines)
+        applied.append(op)
+    return text, next_id, applied
+
+
+def apply_curator_operations(
+    playbook_text: str,
+    operations: list[dict[str, Any]],
+    next_id: int,
+    *,
+    edit_mode: PlaybookEditMode = "add_only",
+) -> tuple[str, int]:
+    text, next_id, _applied = apply_playbook_edits(playbook_text, operations, next_id, edit_mode=edit_mode)
+    return text, next_id
 
 def get_playbook_stats(playbook_text: str) -> Dict[str, Any]:
     stats: Dict[str, Any] = {

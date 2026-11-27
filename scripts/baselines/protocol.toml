@@ -1,0 +1,94 @@
+# Accepted research choices. This file is a protocol, not a training launcher.
+schema_version = 1
+implementation_status = "isolated_runtime"
+benchmarks = ["bfcl", "appworld", "terminalbench2"]
+seeds = [42, 43, 44]
+split_manifest = "scripts/utils/task_splits/bfcl_appworld_terminalbench2_seed42_44.json"
+
+[stream]
+optimizer = "persistent"
+order = "premise_manifest_order"
+passes = 1
+future_train_access = false
+isolated_reset = "all_optimizer_and_instruction_state"
+sequential_transfer = "full_optimizer_state"
+partial_batch = "use_remaining_without_padding"
+
+[validation]
+interleaved_total = 50
+interleaved_counts = { bfcl = 17, appworld = 17, terminalbench2 = 16 }
+selection = "sha256_rank(seed,benchmark,task_id)"
+sequential_scope = "current_benchmark_full_val"
+isolated_scope = "current_benchmark_full_val"
+reflection_trajectories = "train_only"
+
+[execution]
+model = "same_as_selected_premise_reference"
+thinking = false
+benchmark_settings = "same_as_selected_premise_reference"
+max_concurrency_per_method = 50
+error_policy = "premise_bounded_retries_and_typed_failures"
+
+[objective]
+metric = "binary_task_success"
+online = "first_encounter_before_update"
+offline = "frozen_validation_best_on_test"
+checkpoint_unit = "unique_train_encounters"
+checkpoint_encounters = [50, 100, 130]
+checkpoint_schedule_status = "provisional"
+
+# Accepted on 2026-10-21: account for cost without imposing a cumulative cap.
+# Actor token/turn limits and the single train pass remain independent constraints.
+[budget]
+total_training_limit = "unlimited"
+accounting_unit = "actual_environment_session_attempts"
+include_validation = true
+include_failed_attempts = true
+include_retries = true
+premise_reference = "measurement_only"
+termination = "single_pass_stream_exhausted"
+
+[prompts]
+source = "team_prompt/gepa_skillopt_prompts.zip"
+preserve_original_bytes = true
+learned_components = 1
+gepa_initial = "prompts/gepa/base/shared.txt"
+skillopt_initial = "prompts/skillopt/base/seed_skill.md"
+benchmark_base = "common_actor_and_benchmark_guidance_plus_learned_policy"
+actor_context_default = "shared-empty-v1"
+initial_learned_policy = "empty_for_all_four_methods"
+legacy_actor_context = "explicit_legacy_flag_and_frozen_historical_snapshots"
+
+[gepa]
+entrypoint = "gepa.optimize"
+entrypoint_reason = "DSPy compile requires a metric cap; official engine supports uncapped stream termination"
+reflection_minibatch_size = 5
+use_merge = false
+add_format_failure_as_feedback = true
+transfer = ["candidate_archive", "pareto_state", "sampler_cursor", "rng_state"]
+final_selection = "upstream_validation_aggregate_best"
+candidate_selection_strategy = "pareto"
+skip_perfect_score = true
+
+[skillopt]
+epochs = 1
+failure_only = false
+use_gate = true
+gate_metric = "hard"
+use_semantic_density = false
+use_slow_update = false
+# Upstream skips meta-skill generation in epoch 1. Preserve any optimizer-side
+# memory on continuation; do not create artificial epochs at domain boundaries.
+use_meta_skill = true
+final_selection = "best_skill"
+transfer = ["rejected_edit_buffer", "lr_progress", "optimizer_memory", "current_skill", "best_skill"]
+batch_size = 5
+minibatch_size = 5
+accumulation = 1
+skill_update_mode = "patch"
+learning_rate = 4
+min_learning_rate = 2
+lr_scheduler = "cosine"
+lr_control_mode = "fixed"
+
+[proposed_not_accepted]

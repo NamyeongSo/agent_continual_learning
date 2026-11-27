@@ -47,6 +47,13 @@ analysis = [
     "scipy>=1,<2",
     "statsmodels>=0.14,<1",
 ]
+action-agreement = [
+    "tree-sitter>=0.21.3,<0.22",
+    "tree-sitter-languages==1.10.2,<2",
+    "transformers>=4.41,<5",
+    "torch>=2,<3",
+    "sentencepiece>=0.2,<0.3",
+]
 amem = [
     "sentence-transformers>=3,<5",
     "scikit-learn>=1,<2",

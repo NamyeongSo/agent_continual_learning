@@ -74,6 +74,14 @@ class Session(ABC):
         """Persist the minimal standardized results payload (score/success)."""
         self.save_results({"score": score.score, "success": bool(score.success)})
 
+    def fail_experiment_budget(self, details: dict[str, Any], policy: dict[str, Any]) -> SessionScore:
+        """Persist a terminal policy failure before cleanup or aggregation."""
+        from .experiment_limits import budget_failure_score
+
+        self._experiment_failure_score = budget_failure_score(details, experiment_limits=policy)
+        self.save_results(self._experiment_failure_score.model_dump())
+        return self._experiment_failure_score
+
     def save_manifest(self) -> None:
         """Persist task/context/actions metadata for the session."""
         actions_payload = []

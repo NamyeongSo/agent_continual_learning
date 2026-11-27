@@ -11,6 +11,8 @@ from litellm import (
     ChatCompletionUserMessage,
 )
 
+from ..core.experiment_limits import ExperimentBudgetExceededError
+
 
 def shortlist_tools(
     tools: list[dict[str, Any]],
@@ -53,6 +55,8 @@ def shortlist_tools(
 
     try:
         response = completion_fn(model=model, messages=[dev, history_msg])
+    except ExperimentBudgetExceededError:
+        raise
     except Exception as exc:
         logger.warning("Tool shortlisting LLM call failed: %s", exc)
         return tools[:max_selected]

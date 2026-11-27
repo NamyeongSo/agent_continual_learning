@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PREMiSE · Recorded search tree</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; color: #263449; background: #edf1f5; }
+    header { padding: 24px 28px 18px; background: white; border-bottom: 1px solid #d9e0e9; }
+    h1 { font-size: 25px; margin: 0 0 8px; }
+    p { line-height: 1.65; margin: 8px 0; }
+    .muted { color: #61718a; font-size: 13px; }
+    #notice { background: #fff4de; border-left: 4px solid #b97812; padding: 10px 14px; font-size: 13px; }
+    #stats { display: flex; flex-wrap: wrap; gap: 22px; margin: 15px 0; }
+    .stat b { display: block; font-size: 24px; }
+    .stat span { font-size: 12px; color: #61718a; }
+    .legend { display: flex; flex-wrap: wrap; gap: 15px; font-size: 12px; margin-top: 12px; }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
+    nav { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 28px; background: white; }
+    input, select, button { font: inherit; border: 1px solid #c4cfde; border-radius: 5px; padding: 6px 9px; }
+    button { background: #f4f7fa; cursor: pointer; }
+    button:hover { background: #e5edf5; }
+    input[type="number"] { width: 85px; }
+    input[type="range"] { width: 200px; padding: 0; }
+    a { color: #345ca5; }
+    #main { display: grid; grid-template-columns: minmax(520px, 1fr) 430px; height: calc(100vh - 330px); min-height: 480px; }
+    #viewport { overflow: auto; background: white; margin: 0 0 0 18px; border: 1px solid #d9e0e9; }
+    #tree { width: 1200px; transform-origin: top left; }
+    #details { overflow: auto; padding: 0 22px 24px; }
+    .card { padding: 15px; border: 1px solid #d9e0e9; border-radius: 8px; margin: 14px 0; background: white; }
+    h2 { font-size: 19px; margin: 0 0 8px; }
+    h3 { font-size: 14px; margin: 0 0 9px; }
+    pre { white-space: pre-wrap; word-break: break-word; font: 12px/1.6 ui-monospace, monospace; margin: 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    td, th { padding: 6px 5px; text-align: left; border-bottom: 1px solid #e8edf3; }
+    .bad { color: #be3838; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; background: #edf3f9; font-size: 12px; }
+    code { font-size: 12px; overflow-wrap: anywhere; }
+    @media (max-width: 950px) {
+      #main { grid-template-columns: 1fr; height: auto; }
+      #viewport { height: 65vh; margin: 0 10px; }
+      #details { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PREMiSE 실제 탐색 트리</h1>
+    <p id="subtitle" class="muted"></p>
+    <div id="notice"></div>
+    <div id="stats"></div>
+    <p class="muted">부모 2개 → 각 부모에서 후보 2개 생성 → 총 4개 중 2개 선택 → 다음 단계로 확장.
+      선택된 두 후보가 같은 부모에서 나올 수도 있습니다. 노드를 클릭하면 실제 reflection·mutation·점수를 볼 수 있습니다.</p>
+    <div class="legend">
+      <span><i style="background:#087f74"></i>다음 rank 1</span>
+      <span><i style="background:#4169bc"></i>다음 rank 2</span>
+      <span><i style="background:#a4acb9"></i>탈락</span>
+      <span><i style="background:#d34848"></i>후보 오류 / 미생성</span>
+      <span><i style="background:#b97812"></i>skip: 이전 beam 유지</span>
+    </div>
+  </header>
+  <nav>
+    <label>단계 <input id="step" type="number" min="1" value="1"></label>
+    <button id="jump">이동</button>
+    <button id="prev">이전</button><button id="next">다음</button>
+    <label>확대 <input id="zoom" type="range" min="50" max="150" value="85"></label>
+    <select id="errors"><option value="">오류·skip 단계로 이동</option></select>
+    <a href="overview.png">전체 PNG</a><a href="search_tree.pdf">13쪽 PDF</a>
+    <a href="search_tree.svg">연속 SVG</a><a href="graph.json">원본 근거 JSON</a>
+  </nav>
+  <div id="main">
+    <div id="viewport"><div id="tree">__TREE_SVG__</div></div>
+    <aside id="details"></aside>
+  </div>
+  <script id="graph-data" type="application/json">__GRAPH_JSON__</script>
+  <script>
+    const graph = JSON.parse(document.getElementById('graph-data').textContent);
+    const nodes = new Map(graph.nodes.map(n => [n.id, n]));
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c =>
+      ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
+    const s = graph.stats;
+    $('step').max = graph.steps;
+    $('subtitle').textContent = `seed ${graph.config.seed} · ${graph.config.mode} · ${graph.config.model} · past=${graph.config.past_count}`;
+    let notice = `완전 무오류 130회 run은 아닙니다. ${graph.steps}단계 중 beam 선택 ${s.selection_updates}회 성공, ` +
+      `skip ${s.skipped_steps || 0}회, 후보·분기 오류가 기록된 단계 ${s.steps_with_branch_errors}회입니다. ` +
+      `성공한 선택 중에서도 mutation이 없는 후보가 포함될 수 있습니다.`;
+    if (graph.source_order_length !== graph.steps)
+      notice += ` 전체 ${graph.source_order_length}개 task 계획의 앞 ${graph.steps}단계만 표시합니다.`;
+    if (graph.metric_type === 'legacy_pct_surrogate')
+      notice += ' 구형 BFCL·AppWorld·SWE-bench 프로토콜이며 성능 축은 PCT surrogate입니다.';
+    $('notice').textContent = notice;
+    const cards = [[graph.steps, 'task encounters'], [s.selection_updates, '성공한 beam 선택'],
+      [s.skipped_steps || 0, 'skips'], [s.error_free_selection_updates, '분기 오류 없는 선택'],
+      [s.candidates, '생성 후보'], [s.invalid_candidates, '오류 후보']];
+    $('stats').innerHTML = cards.map(([n, label]) => `<div class="stat"><b>${n}</b><span>${label}</span></div>`).join('');
+    graph.rows.filter(r => r.has_errors || r.skipped).forEach(row => {
+      const option = document.createElement('option');
+      option.value = row.iteration;
+      option.textContent = `${row.iteration}: ${row.skipped ? 'SKIP' : 'branch error'} · ${row.benchmark}`;
+      $('errors').append(option);
+    });
+    function card(title, body) { return `<div class="card"><h3>${esc(title)}</h3>${body}</div>`; }
+    function json(value) { return `<pre>${esc(JSON.stringify(value, null, 2))}</pre>`; }
+    function showNode(id) {
+      const node = nodes.get(id);
+      document.querySelectorAll('.node.active').forEach(n => n.classList.remove('active'));
+      $(id)?.classList.add('active');
+      if (node.kind === 'root') {
+        $('details').innerHTML = card(`Initial parent ${node.rank}`, '<p>초기 beam의 부모 슬롯입니다.</p>');
+        return;
+      }
+      const row = graph.rows[node.iteration - 1];
+      $('step').value = row.iteration;
+      let body = `<h2>Step ${row.iteration} · ${esc(id)}</h2><p>${esc(row.benchmark)} · ${esc(row.task_id)}</p>`;
+      body += `<p class="badge">${node.kind === 'carry' ? 'SKIP · 이전 playbook 유지' :
+        node.rank ? `선택 → 다음 rank ${node.rank}` : node.valid ? '탈락 · 더 이상 확장 안 함' : '후보 오류'}</p>`;
+      body += card('실제 부모와 다음 beam', `<p>부모: <code>${esc(node.parent)}</code></p>` +
+        `<p>다음 beam: <code>${esc(row.next_beam.join(', '))}</code></p>`);
+      if (node.kind === 'candidate') {
+        const metrics = Object.entries(node.metrics).map(([k, v]) =>
+          `<tr><td>${esc(k)}</td><td>${v === null ? 'past 없음' : Number(v).toFixed(4)}</td></tr>`).join('');
+        body += card('평가 점수 · 현재 / 과거', `<table>${metrics}</table><p class="muted">A는 행동 alignment, ` +
+          `${graph.metric_type === 'official_score' ? 'S는 실제 공식 benchmark 점수' : 'PCT는 구형 성능 surrogate'}입니다. ` +
+          `과거 점수는 해당 단계에 샘플링한 task들의 평균으로, 단계마다 평가 대상이 달라집니다.</p>`);
+        body += card(`Mutation · ${node.applied.length} operations · ${node.bullet_count} bullets`,
+          node.applied.length ? node.applied.map(op => `<p class="badge">${esc(op.type)} · ${esc(op.section || op.benchmark)}</p>` +
+            `<p>${esc(op.content)}</p>`).join('') : '<p>적용된 mutation operation이 없습니다.</p>');
+        if (node.mutation_summary) body += card('Mutation summary', `<p>${esc(node.mutation_summary)}</p>`);
+        body += card('Reflection · 실제 선택 span', json(node.reflection));
+        if (node.errors.length) body += card('기록된 후보 오류', `<div class="bad">${json(node.errors)}</div>`);
+      } else body += card('Skip 사유', `<p>${esc(row.reason)}</p>`);
+      if (row.errors.length) body += card('기록된 단계·부모·reflection 오류', `<div class="bad">${json(row.errors)}</div>`);
+      body += card('이 단계의 선택 근거', json(row.selection));
+      body += card('샘플링한 과거 task', json(row.past_sample));
+      body += card('원본 기록', `<code>${esc(row.source)}</code>`);
+      $('details').innerHTML = body;
+    }
+    function jump(step) {
+      step = Math.min(graph.steps, Math.max(1, Number(step) || 1));
+      const scale = Number($('zoom').value) / 100;
+      $('viewport').scrollTop = (step * 128 + 108 - 55) * scale;
+      $('step').value = step;
+      showNode(graph.rows[step - 1].next_beam[0]);
+    }
+    $('tree').addEventListener('click', event => {
+      const node = event.target.closest('[data-node]');
+      if (node) showNode(node.dataset.node);
+    });
+    $('jump').onclick = () => jump($('step').value);
+    $('step').onkeydown = event => { if (event.key === 'Enter') jump($('step').value); };
+    $('prev').onclick = () => jump(Number($('step').value) - 1);
+    $('next').onclick = () => jump(Number($('step').value) + 1);
+    $('errors').onchange = () => { if ($('errors').value) jump($('errors').value); };
+    $('zoom').oninput = () => {
+      const scale = Number($('zoom').value) / 100;
+      const svg = $('tree').querySelector('svg');
+      svg.style.width = `${1200 * scale}px`;
+      svg.style.height = `${Number(svg.getAttribute('height')) * scale}px`;
+      $('tree').style.width = `${1200 * scale}px`;
+    };
+    $('zoom').oninput();
+    showNode(graph.rows[0].next_beam[0]);
+  </script>
+</body>
+</html>

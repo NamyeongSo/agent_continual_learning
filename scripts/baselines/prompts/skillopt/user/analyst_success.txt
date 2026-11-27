@@ -1,0 +1,8 @@
+## Current Skill
+{skill_content}
+
+## Edits Budget
+Produce at most L={edit_budget} edits.
+
+{optional_previous_steps_section}{optional_optimizer_meta_skill_context}## Successful Trajectories ({trajectory_count} total)
+{trajectories_text}

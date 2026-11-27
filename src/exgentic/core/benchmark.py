@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
@@ -14,6 +14,7 @@ from .runner_mixin import RunnerMixin
 if TYPE_CHECKING:
     from .evaluator import Evaluator
     from .session import Session
+    from .types import SessionIndex
 
 
 class Benchmark(BaseModel, RunnerMixin, ABC):
@@ -22,6 +23,9 @@ class Benchmark(BaseModel, RunnerMixin, ABC):
     Callers use ``get_evaluator()`` and ``get_session()`` to obtain
     instances wrapped in the configured runner for container isolation.
     """
+
+    requires_sequential_sessions: ClassVar[bool] = False
+    static_action_space: ClassVar[bool] = False
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -81,6 +85,14 @@ class Benchmark(BaseModel, RunnerMixin, ABC):
             **self._get_evaluator_kwargs(),
             **self.runner_kwargs(),
         )
+
+    def get_session_kwargs(self, index: SessionIndex) -> dict[str, Any] | None:
+        """Optionally construct session metadata locally without an evaluator.
+
+        Return None when session configuration requires the isolated evaluator.
+        Overrides must not load benchmark dependencies or mutable task state.
+        """
+        return None
 
     def get_session(self, **session_kwargs: Any) -> Session:
         """Create a ``Session`` wrapped in the configured runner."""

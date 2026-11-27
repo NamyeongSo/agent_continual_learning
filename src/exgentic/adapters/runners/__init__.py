@@ -107,6 +107,7 @@ def with_runner(cls: type | str, *args: Any, runner: RunnerName = "direct", **kw
             "port",
             "dependencies",
             "health_timeout",
+            "transport_timeout",
         ):
             if key in kwargs:
                 venv_kw[key] = kwargs.pop(key)

@@ -17,6 +17,7 @@ from litellm import (
 )
 
 from ...core.agent_instance import AgentInstance
+from ...core.experiment_limits import ExperimentBudgetExceededError, actor_completion
 from ...core.types import (
     Action,
     ActionType,
@@ -554,8 +555,10 @@ class AutoSkillAgentInstance(AgentInstance):
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
-                response = litellm.completion(**call_kwargs)
+                response = actor_completion(self, call_kwargs)
                 return response
+            except ExperimentBudgetExceededError:
+                raise
             except Exception as exc:
                 self.logger.warning(
                     "AutoSkill LLM call attempt %d/%d failed: %s",
